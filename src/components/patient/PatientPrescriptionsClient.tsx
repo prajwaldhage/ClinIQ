@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     Pill, TrendingDown, Store, Search, ChevronRight,
     Clock, AlertCircle, IndianRupee, BadgeCheck, Package,
-    Camera, Upload, Loader2, CheckCircle2, X, Image as ImageIcon, Sparkles, FileText
+    Camera, Upload, Loader2, CheckCircle2, X, Image as ImageIcon, Sparkles, FileText, Plus
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { MedicineAutocomplete } from "@/components/shared/MedicineAutocomplete";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -488,6 +489,41 @@ export function PatientPrescriptionsClient({ user }: PatientPrescriptionsClientP
     const [pastPrescriptions, setPastPrescriptions] = useState(MOCK_PAST_PRESCRIPTIONS);
     const [scannedPrescriptions, setScannedPrescriptions] = useState<ScanResult[]>([]);
 
+    // Manual Add State
+    const [showManualAdd, setShowManualAdd] = useState(false);
+    const [newMedicineName, setNewMedicineName] = useState("");
+    const [newMedicineGeneric, setNewMedicineGeneric] = useState("");
+    const [newMedicineFrequency, setNewMedicineFrequency] = useState("");
+
+    const handleAddManualPrescription = () => {
+        if (!newMedicineName.trim()) return;
+        
+        const newRx = {
+            id: `manual-${Date.now()}`,
+            name: newMedicineName,
+            generic_name: newMedicineGeneric || newMedicineName,
+            frequency: newMedicineFrequency || "Once daily",
+            duration: "Ongoing",
+            prescribed_by: "Self / Manual added",
+            prescribed_date: new Date().toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }),
+            brand_price: Math.floor(Math.random() * 200) + 50,
+            generic_price: Math.floor(Math.random() * 50) + 20,
+            jan_aushadhi_price: Math.floor(Math.random() * 30) + 10,
+            jan_aushadhi_available: true,
+            jan_aushadhi_store: "Jan Aushadhi Kendra, Sector 15",
+            jan_aushadhi_distance: "2.3 km",
+            adherence: 100,
+            refill_days: 30,
+            instructions: "",
+        };
+        
+        setActivePrescriptions(prev => [newRx, ...prev]);
+        setNewMedicineName("");
+        setNewMedicineGeneric("");
+        setNewMedicineFrequency("");
+        setShowManualAdd(false);
+    };
+
     // Load scanned prescriptions from localStorage
     useEffect(() => {
         setScannedPrescriptions(loadScannedPrescriptions());
@@ -658,8 +694,71 @@ export function PatientPrescriptionsClient({ user }: PatientPrescriptionsClientP
 
             {/* Active prescriptions */}
             {activeTab === "active" && (
-                <div className="space-y-3">
-                    {activeMeds.map((rx, i) => (
+                <div className="space-y-4">
+                    <div className="flex justify-end">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20 text-xs h-8"
+                            onClick={() => setShowManualAdd(!showManualAdd)}
+                        >
+                            <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Medication
+                        </Button>
+                    </div>
+
+                    <AnimatePresence>
+                        {showManualAdd && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="overflow-hidden"
+                            >
+                                <Card className="border-blue-500/30 bg-blue-500/5 mb-2">
+                                    <CardContent className="p-4 space-y-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-semibold text-[var(--foreground)] flex items-center gap-1.5">
+                                                <Pill className="w-3.5 h-3.5 text-blue-400" />
+                                                Find Medicine
+                                            </label>
+                                            <MedicineAutocomplete 
+                                                value={newMedicineName}
+                                                onChange={setNewMedicineName}
+                                                onSelect={(val) => {
+                                                    setNewMedicineName(val);
+                                                    setNewMedicineGeneric(val);
+                                                }}
+                                                placeholder="Start typing medicine name..."
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-medium text-[var(--foreground-subtle)] uppercase tracking-wider">Frequency</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={newMedicineFrequency}
+                                                    onChange={(e) => setNewMedicineFrequency(e.target.value)}
+                                                    placeholder="e.g. Twice daily"
+                                                    className="w-full bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)] rounded-md px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500/50"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-end gap-2 pt-2">
+                                            <Button variant="ghost" size="sm" onClick={() => setShowManualAdd(false)} className="text-xs h-8 hover:bg-[var(--surface-elevated)] text-[var(--foreground-muted)]">
+                                                Cancel
+                                            </Button>
+                                            <Button size="sm" onClick={handleAddManualPrescription} disabled={!newMedicineName} className="text-xs h-8 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20">
+                                                Save Script
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    <div className="space-y-3">
+                        {activeMeds.map((rx, i) => (
                         <motion.div
                             key={rx.id}
                             initial={{ opacity: 0, y: 8 }}
@@ -752,6 +851,7 @@ export function PatientPrescriptionsClient({ user }: PatientPrescriptionsClientP
                             </Card>
                         </motion.div>
                     ))}
+                </div>
                 </div>
             )}
 
