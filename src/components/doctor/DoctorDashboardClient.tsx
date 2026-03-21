@@ -1,12 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
-  Activity, Users, Shield, CreditCard, Stethoscope,
-  CalendarDays, Clock, ChevronRight, TrendingUp, AlertTriangle,
-  CheckCircle2, Plus, Search, FileText, HeartPulse, Globe
+  Activity,
+  Users,
+  Shield,
+  CreditCard,
+  Stethoscope,
+  CalendarDays,
+  Clock,
+  ChevronRight,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
+  Plus,
+  Search,
+  FileText,
+  HeartPulse,
+  Globe,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,29 +28,52 @@ import { Button } from "@/components/ui/button";
 import { TriagePanel } from "@/components/doctor/TriagePanel";
 import { FamilyHealthGraph } from "@/components/doctor/FamilyHealthGraph";
 import { FlashbackCard } from "@/components/doctor/FlashbackCard";
-import { ProtocolCreditBadge, GlobalRepositoryModal, useProtocolCredits } from "@/components/doctor/ProtocolCreditBadge";
+import {
+  ProtocolCreditBadge,
+  GlobalRepositoryModal,
+  useProtocolCredits,
+} from "@/components/doctor/ProtocolCreditBadge";
 import { formatDate, cn } from "@/lib/utils";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 
-// ─── Mock data for demo ───────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const MOCK_APPOINTMENTS = [
-  { id: "1", name: "Priya Sharma", age: 45, gender: "F", time: "10:00 AM", type: "followup", complaint: "Uncontrolled blood sugar, fatigue", lastVisit: "2026-01-15", status: "pending", urgency: "normal" },
-  { id: "2", name: "Ramesh Patel", age: 62, gender: "M", time: "10:30 AM", type: "general", complaint: "Chest pain, breathlessness", lastVisit: "2025-12-20", status: "pending", urgency: "high" },
-  { id: "3", name: "Anita Verma", age: 34, gender: "F", time: "11:00 AM", type: "general", complaint: "Fever, body ache, headache (3 days)", lastVisit: "2025-11-05", status: "completed", urgency: "normal" },
-  { id: "4", name: "Suresh Kumar", age: 55, gender: "M", time: "11:30 AM", type: "followup", complaint: "BP review, medication adjustment", lastVisit: "2026-02-01", status: "pending", urgency: "normal" },
-  { id: "5", name: "Meera Singh", age: 28, gender: "F", time: "12:00 PM", type: "general", complaint: "Rash on arms and neck, itching", lastVisit: "2025-10-12", status: "pending", urgency: "normal" },
-];
+interface AppointmentType {
+  id: string;
+  patient_id: string;
+  name: string;
+  age: number;
+  gender: string;
+  time: string;
+  type: string;
+  complaint: string;
+  lastVisit: string | null;
+  status: string;
+  urgency: string;
+}
 
-const MOCK_STATS = [
-  { label: "Today's Patients", value: "12", icon: Users, delta: "+3 vs yesterday", color: "text-[#4A90E2]", bg: "bg-[#4A90E2]/10" },
-  { label: "Consultations Done", value: "7", icon: CheckCircle2, delta: "58% complete", color: "text-[#10B981]", bg: "bg-[#10B981]/10" },
-  { label: "Safety Alerts", value: "3", icon: Shield, delta: "2 unresolved", color: "text-[#EF4444]", bg: "bg-[#EF4444]/10" },
-  { label: "Revenue Today", value: "₹8,400", icon: CreditCard, delta: "+12% vs avg", color: "text-[#F59E0B]", bg: "bg-[#F59E0B]/10" },
-];
+interface SafetyAlertSummary {
+  drug: string;
+  severity: string;
+  patient: string;
+}
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
-function StatCard({ stat, index }: { stat: typeof MOCK_STATS[0]; index: number }) {
+function StatCard({
+  stat,
+  index,
+}: {
+  stat: {
+    label: string;
+    value: string;
+    icon: any;
+    delta: string;
+    color: string;
+    bg: string;
+  };
+  index: number;
+}) {
   const Icon = stat.icon;
   return (
     <motion.div
@@ -44,15 +81,29 @@ function StatCard({ stat, index }: { stat: typeof MOCK_STATS[0]; index: number }
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
     >
-      <Card className="border-[var(--border)] bg-[var(--surface)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" style={{ borderRadius: "var(--radius)" }}>
+      <Card
+        className="border-[var(--border)] bg-[var(--surface)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+        style={{ borderRadius: "var(--radius)" }}
+      >
         <CardContent className="p-5">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs text-[var(--text-secondary)]">{stat.label}</p>
-              <p className="text-2xl font-bold text-[var(--text-primary)] mt-1">{stat.value}</p>
-              <p className="text-[10px] text-[var(--text-secondary)] mt-1">{stat.delta}</p>
+              <p className="text-xs text-[var(--text-secondary)]">
+                {stat.label}
+              </p>
+              <p className="text-2xl font-bold text-[var(--text-primary)] mt-1">
+                {stat.value}
+              </p>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-1">
+                {stat.delta}
+              </p>
             </div>
-            <div className={cn("flex items-center justify-center w-10 h-10 rounded-xl", stat.bg)}>
+            <div
+              className={cn(
+                "flex items-center justify-center w-10 h-10 rounded-xl",
+                stat.bg,
+              )}
+            >
               <Icon className={cn("w-5 h-5", stat.color)} />
             </div>
           </div>
@@ -64,7 +115,7 @@ function StatCard({ stat, index }: { stat: typeof MOCK_STATS[0]; index: number }
 
 // ─── Patient row ──────────────────────────────────────────────────────────────
 
-function PatientRow({ appt, index }: { appt: typeof MOCK_APPOINTMENTS[0]; index: number }) {
+function PatientRow({ appt, index }: { appt: AppointmentType; index: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
@@ -76,23 +127,30 @@ function PatientRow({ appt, index }: { appt: typeof MOCK_APPOINTMENTS[0]; index:
           ? "border-[var(--border)] opacity-60 bg-transparent"
           : appt.urgency === "high"
             ? "border-[#EF4444]/25 bg-[#EF4444]/5 hover:bg-[#EF4444]/10"
-            : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] hover:shadow-sm"
+            : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] hover:shadow-sm",
       )}
     >
       {/* Avatar */}
-      <div className={cn(
-        "flex items-center justify-center w-10 h-10 rounded-xl text-sm font-semibold shrink-0",
-        appt.urgency === "high" ? "bg-[#EF4444]/20 text-[#EF4444]" : "bg-[#4A90E2]/20 text-[#4A90E2]"
-      )}>
+      <div
+        className={cn(
+          "flex items-center justify-center w-10 h-10 rounded-xl text-sm font-semibold shrink-0",
+          appt.urgency === "high"
+            ? "bg-[#EF4444]/20 text-[#EF4444]"
+            : "bg-[#4A90E2]/20 text-[#4A90E2]",
+        )}
+      >
         {appt.name.charAt(0)}
       </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-[var(--text-primary)] truncate">{appt.name}</p>
+          <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+            {appt.name}
+          </p>
           <span className="text-[10px] text-[var(--text-secondary)]">
-            {appt.age}{appt.gender}
+            {appt.age}
+            {appt.gender}
           </span>
           {appt.urgency === "high" && (
             <Badge className="text-[9px] py-0 px-1.5 h-4 bg-[#EF4444]/10 text-[#EF4444] border-0">
@@ -105,19 +163,30 @@ function PatientRow({ appt, index }: { appt: typeof MOCK_APPOINTMENTS[0]; index:
             </Badge>
           )}
         </div>
-        <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">{appt.complaint}</p>
+        <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">
+          {appt.complaint}
+        </p>
       </div>
 
       {/* Time & type */}
       <div className="text-right shrink-0">
-        <p className="text-xs font-medium text-[var(--text-primary)]">{appt.time}</p>
-        <p className="text-[10px] text-[var(--text-secondary)] capitalize">{appt.type}</p>
+        <p className="text-xs font-medium text-[var(--text-primary)]">
+          {appt.time}
+        </p>
+        <p className="text-[10px] text-[var(--text-secondary)] capitalize">
+          {appt.type}
+        </p>
       </div>
 
       {/* Action */}
       {appt.status !== "completed" && (
-        <Link href={`/doctor/consultation?id=new&patientId=${appt.id}&patientName=${encodeURIComponent(appt.name)}`}>
-          <Button size="sm" className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-xl">
+        <Link
+          href={`/doctor/consultation?id=new&patientId=${appt.patient_id}&patientName=${encodeURIComponent(appt.name)}`}
+        >
+          <Button
+            size="sm"
+            className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-xl"
+          >
             <Stethoscope className="w-3 h-3" />
             Start
           </Button>
@@ -134,17 +203,183 @@ interface DoctorDashboardClientProps {
 }
 
 export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
+  const [appointments, setAppointments] = useState<AppointmentType[]>([]);
+  const [alerts, setAlerts] = useState<SafetyAlertSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showRepoModal, setShowRepoModal] = useState(false);
   const { credits, addCredits } = useProtocolCredits();
 
-  const filteredAppts = MOCK_APPOINTMENTS.filter((a) =>
-    a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.complaint.toLowerCase().includes(searchQuery.toLowerCase())
+  // Calculate age from DOB
+  const calculateAge = (dob: string): number => {
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+    return age;
+  };
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      const supabase = getSupabaseBrowserClient();
+
+      try {
+        const today = new Date().toISOString().split("T")[0];
+
+        // Fetch today's appointments with patient info
+        const { data: appointmentsData } = await supabase
+          .from("appointments")
+          .select(
+            `
+            id, date, time_slot, status, appointment_type,
+            patient:patients!appointments_patient_id_fkey(id, name, dob, gender)
+          `,
+          )
+          .eq("date", today)
+          .order("time_slot", { ascending: true });
+
+        if (appointmentsData && appointmentsData.length > 0) {
+          const mapped: AppointmentType[] = appointmentsData.map((a) => {
+            const patient = a.patient as {
+              id: string;
+              name: string;
+              dob: string;
+              gender: string;
+            } | null;
+            return {
+              id: a.id as string,
+              patient_id: patient?.id ?? "",
+              name: patient?.name ?? "Unknown Patient",
+              age: patient?.dob ? calculateAge(patient.dob) : 0,
+              gender: (patient?.gender ?? "M").charAt(0),
+              time: a.time_slot ?? "—",
+              type: a.appointment_type ?? "general",
+              complaint: "—", // Can be added if complaint is stored
+              lastVisit: null, // Can be fetched if needed
+              status: a.status ?? "pending",
+              urgency: "normal", // Can be calculated based on patient conditions
+            };
+          });
+          setAppointments(mapped);
+        }
+
+        // Fetch recent safety alerts
+        const { data: alertsData } = await supabase
+          .from("safety_alerts")
+          .select(
+            `
+            id, title, severity, drug_a, drug_b,
+            consultation:consultations!safety_alerts_consultation_id_fkey(
+              patient:patients!consultations_patient_id_fkey(name)
+            )
+          `,
+          )
+          .eq("acknowledged", false)
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        if (alertsData && alertsData.length > 0) {
+          const mappedAlerts: SafetyAlertSummary[] = alertsData.map((a) => {
+            const consultation = a.consultation as {
+              patient?: { name?: string };
+            } | null;
+            const patientName = consultation?.patient?.name ?? "Unknown";
+            const initials = patientName
+              .split(" ")
+              .map((n) => n.charAt(0))
+              .join(". ");
+
+            return {
+              drug: a.title ?? `${a.drug_a} + ${a.drug_b}`,
+              severity: a.severity ?? "medium",
+              patient: initials,
+            };
+          });
+          setAlerts(mappedAlerts);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDashboardData();
+  }, []);
+
+  const filteredAppts = appointments.filter(
+    (a) =>
+      a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.complaint.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  const stats = useMemo(() => {
+    const todayTotal = appointments.length;
+    const completed = appointments.filter(
+      (a) => a.status === "completed",
+    ).length;
+    const pending = appointments.filter((a) => a.status === "pending").length;
+
+    return [
+      {
+        label: "Today's Patients",
+        value: todayTotal.toString(),
+        icon: Users,
+        delta: `${pending} waiting`,
+        color: "text-[#4A90E2]",
+        bg: "bg-[#4A90E2]/10",
+      },
+      {
+        label: "Consultations Done",
+        value: completed.toString(),
+        icon: CheckCircle2,
+        delta:
+          todayTotal > 0
+            ? `${Math.round((completed / todayTotal) * 100)}% complete`
+            : "0%",
+        color: "text-[#10B981]",
+        bg: "bg-[#10B981]/10",
+      },
+      {
+        label: "Safety Alerts",
+        value: alerts.length.toString(),
+        icon: Shield,
+        delta: `${alerts.filter((a) => a.severity === "critical").length} critical`,
+        color: "text-[#EF4444]",
+        bg: "bg-[#EF4444]/10",
+      },
+      {
+        label: "Queue Status",
+        value: pending.toString(),
+        icon: CreditCard,
+        delta: "Pending consultations",
+        color: "text-[#F59E0B]",
+        bg: "bg-[#F59E0B]/10",
+      },
+    ];
+  }, [appointments, alerts]);
+
   const now = new Date();
-  const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
+  const greeting =
+    now.getHours() < 12
+      ? "Good morning"
+      : now.getHours() < 17
+        ? "Good afternoon"
+        : "Good evening";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto bg-[var(--bg)] min-h-screen">
@@ -166,7 +401,9 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1 flex items-center gap-1.5">
             <CalendarDays className="w-4 h-4" />
-            {formatDate(new Date())} · {MOCK_APPOINTMENTS.filter(a => a.status === "pending").length} patients waiting
+            {formatDate(new Date())} ·{" "}
+            {appointments.filter((a) => a.status === "pending").length} patients
+            waiting
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -181,12 +418,19 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
             Repository
           </button>
 
-          <Button variant="outline" size="sm" className="gap-1.5 rounded-xl border-[var(--border)] hover:bg-[var(--surface-elevated)]">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 rounded-xl border-[var(--border)] hover:bg-[var(--surface-elevated)]"
+          >
             <FileText className="w-3.5 h-3.5" />
             All Records
           </Button>
           <Link href="/doctor/consultation?id=new">
-            <Button size="sm" className="gap-1.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)]">
+            <Button
+              size="sm"
+              className="gap-1.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)]"
+            >
               <Plus className="w-3.5 h-3.5" />
               New Consultation
             </Button>
@@ -196,7 +440,7 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
 
       {/* ─── Stats grid ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {MOCK_STATS.map((stat, i) => (
+        {stats.map((stat, i) => (
           <StatCard key={stat.label} stat={stat} index={i} />
         ))}
       </div>
@@ -220,49 +464,101 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
           </div>
 
           <div className="space-y-2">
-            {filteredAppts.map((appt, i) => (
-              <PatientRow key={appt.id} appt={appt} index={i} />
-            ))}
+            {appointments.length === 0 ? (
+              <Card className="border-[var(--border)]">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <CalendarDays className="w-12 h-12 text-[var(--text-secondary)] mb-4" />
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    No appointments today
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                    Your schedule is clear for today
+                  </p>
+                </CardContent>
+              </Card>
+            ) : filteredAppts.length === 0 ? (
+              <Card className="border-[var(--border)]">
+                <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                  <Search className="w-8 h-8 text-[var(--text-secondary)] mb-3" />
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    No patients match your search
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              filteredAppts.map((appt, i) => (
+                <PatientRow key={appt.id} appt={appt} index={i} />
+              ))
+            )}
           </div>
         </div>
 
         {/* ─── Right panel ───────────────────────────────────────── */}
         <div className="space-y-4">
           {/* Safety alerts preview */}
-          <Card className="bg-[var(--surface)] border-[var(--border)]" style={{ borderRadius: "var(--radius)" }}>
+          <Card
+            className="bg-[var(--surface)] border-[var(--border)]"
+            style={{ borderRadius: "var(--radius)" }}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-[var(--text-primary)]">
                 <div className="w-8 h-8 rounded-lg bg-[#EF4444]/10 flex items-center justify-center">
                   <Shield className="w-4 h-4 text-[#EF4444]" />
                 </div>
                 Active Alerts
-                <Badge className="ml-auto text-[9px] bg-[#EF4444]/10 text-[#EF4444] border-0">3</Badge>
+                <Badge className="ml-auto text-[9px] bg-[#EF4444]/10 text-[#EF4444] border-0">
+                  {alerts.length}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {[
-                { drug: "Warfarin + Aspirin", severity: "critical", patient: "R. Patel" },
-                { drug: "Penicillin allergy flag", severity: "high", patient: "P. Sharma" },
-                { drug: "Metformin + Contrast dye", severity: "medium", patient: "S. Kumar" },
-              ].map((alert, i) => (
-                <div key={i} className={cn(
-                  "flex items-start gap-2 p-3 rounded-xl text-xs border",
-                  alert.severity === "critical" ? "bg-[#EF4444]/10 border-[#EF4444]/20" :
-                    alert.severity === "high" ? "bg-[#F59E0B]/10 border-[#F59E0B]/20" :
-                      "bg-[#F59E0B]/5 border-[#F59E0B]/10"
-                )}>
-                  <AlertTriangle className={cn("w-4 h-4 mt-0.5 shrink-0",
-                    alert.severity === "critical" ? "text-[#EF4444]" :
-                      alert.severity === "high" ? "text-[#F59E0B]" : "text-[#F59E0B]"
-                  )} />
-                  <div>
-                    <p className="font-medium text-[var(--text-primary)]">{alert.drug}</p>
-                    <p className="text-[var(--text-secondary)]">{alert.patient}</p>
-                  </div>
+              {alerts.length === 0 ? (
+                <div className="text-center py-6">
+                  <Shield className="w-8 h-8 mx-auto text-green-400 mb-2" />
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    No active safety alerts
+                  </p>
                 </div>
-              ))}
+              ) : (
+                alerts.map((alert, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "flex items-start gap-2 p-3 rounded-xl text-xs border",
+                      alert.severity === "critical"
+                        ? "bg-[#EF4444]/10 border-[#EF4444]/20"
+                        : alert.severity === "high"
+                          ? "bg-[#F59E0B]/10 border-[#F59E0B]/20"
+                          : "bg-[#F59E0B]/5 border-[#F59E0B]/10",
+                    )}
+                  >
+                    <AlertTriangle
+                      className={cn(
+                        "w-4 h-4 mt-0.5 shrink-0",
+                        alert.severity === "critical"
+                          ? "text-[#EF4444]"
+                          : alert.severity === "high"
+                            ? "text-[#F59E0B]"
+                            : "text-[#F59E0B]",
+                      )}
+                    />
+                    <div>
+                      <p className="font-medium text-[var(--text-primary)]">
+                        {alert.drug}
+                      </p>
+                      <p className="text-[var(--text-secondary)]">
+                        {alert.patient}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
               <Link href="/doctor/alerts">
-                <Button variant="ghost" size="sm" className="w-full text-xs mt-2 gap-1 rounded-xl hover:bg-[var(--surface-elevated)]">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs mt-2 gap-1 rounded-xl hover:bg-[var(--surface-elevated)]"
+                >
                   View All <ChevronRight className="w-3 h-3" />
                 </Button>
               </Link>
@@ -270,7 +566,10 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
           </Card>
 
           {/* Quick stats */}
-          <Card className="bg-[var(--surface)] border-[var(--border)]" style={{ borderRadius: "var(--radius)" }}>
+          <Card
+            className="bg-[var(--surface)] border-[var(--border)]"
+            style={{ borderRadius: "var(--radius)" }}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-[var(--text-primary)]">
                 <div className="w-8 h-8 rounded-lg bg-[#10B981]/10 flex items-center justify-center">
@@ -281,19 +580,26 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
             </CardHeader>
             <CardContent className="space-y-3">
               {[
-                { label: "Consultations", value: "47", icon: Stethoscope },
-                { label: "Avg. Duration", value: "18 min", icon: Clock },
-                { label: "Patient Satisfaction", value: "96%", icon: HeartPulse },
-                { label: "Coding Accuracy", value: "100%", icon: Activity },
+                { label: "Consultations", value: "—", icon: Stethoscope },
+                { label: "Avg. Duration", value: "—", icon: Clock },
+                { label: "Patient Satisfaction", value: "—", icon: HeartPulse },
+                { label: "Coding Accuracy", value: "—", icon: Activity },
               ].map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div key={item.label} className="flex items-center justify-between p-2 rounded-lg hover:bg-[var(--surface-elevated)] transition-colors">
+                  <div
+                    key={item.label}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-[var(--surface-elevated)] transition-colors"
+                  >
                     <div className="flex items-center gap-2">
                       <Icon className="w-4 h-4 text-[var(--text-secondary)]" />
-                      <span className="text-xs text-[var(--text-secondary)]">{item.label}</span>
+                      <span className="text-xs text-[var(--text-secondary)]">
+                        {item.label}
+                      </span>
                     </div>
-                    <span className="text-xs font-semibold text-[var(--text-primary)]">{item.value}</span>
+                    <span className="text-xs font-semibold text-[var(--text-primary)]">
+                      {item.value}
+                    </span>
                   </div>
                 );
               })}
@@ -301,13 +607,20 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
           </Card>
 
           {/* Triage panel */}
-          <FlashbackCard patientName={MOCK_APPOINTMENTS[0]?.name} />
+          {appointments.length > 0 && (
+            <FlashbackCard
+              patientId={appointments[0]?.patient_id}
+              patientName={appointments[0]?.name}
+            />
+          )}
           <TriagePanel />
         </div>
       </div>
 
       {/* ─── Family Health Graph ──────────────────────────────────── */}
-      <FamilyHealthGraph patientId={MOCK_APPOINTMENTS[0]?.id} />
+      {appointments.length > 0 && (
+        <FamilyHealthGraph patientId={appointments[0]?.patient_id} />
+      )}
     </div>
   );
 }

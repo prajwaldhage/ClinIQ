@@ -1,21 +1,34 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardList, Search, Filter, FileText, Calendar, Clock,
   User, Stethoscope, Pill, FlaskConical, Activity, ChevronRight,
   ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, Download,
-  Printer, Eye, X, Heart, Thermometer, Droplets, Wind
+  Printer, Eye, X, Heart, Thermometer, Droplets, Wind, Loader2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate, getInitials } from "@/lib/utils";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
+import type { EMREntry } from "@/lib/types";
 
-// ─── Comprehensive EMR Mock Data ─────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const MOCK_EMR_RECORDS = [
+interface EMRRecordWithPatient extends EMREntry {
+  patient_name: string;
+  patient_age: number;
+  patient_gender: string;
+  patient_id: string;
+  doctor_name: string;
+  date: string;
+  consultation_type: "general" | "followup" | "emergency";
+  status: "completed" | "in-review" | "draft";
+}
+
+const MOCK_EMR_RECORDS_BACKUP = [
   {
     id: "emr-001",
     consultation_id: "c-001",
@@ -238,7 +251,7 @@ const MOCK_EMR_RECORDS = [
   },
 ];
 
-type EMRRecord = typeof MOCK_EMR_RECORDS[0];
+type EMRRecord = EMRRecordWithPatient;
 
 // ─── Status & consultation type config ────────────────────────────────────────
 
@@ -254,14 +267,19 @@ const TYPE_CONFIG = {
   emergency: { label: "Emergency", color: "text-red-400 bg-red-500/10" },
 };
 
-// ─── Stats ────────────────────────────────────────────────────────────────────
+// ─── Stats Helper ─────────────────────────────────────────────────────────────
 
-const STATS = [
-  { label: "Total Records", value: MOCK_EMR_RECORDS.length.toString(), icon: ClipboardList, color: "text-blue-400", bg: "bg-blue-500/10" },
-  { label: "This Week", value: MOCK_EMR_RECORDS.filter(r => new Date(r.date) > new Date("2026-02-19")).length.toString(), icon: Calendar, color: "text-green-400", bg: "bg-green-500/10" },
-  { label: "Pending Review", value: MOCK_EMR_RECORDS.filter(r => r.status === "in-review").length.toString(), icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
-  { label: "ICD Codes Mapped", value: MOCK_EMR_RECORDS.reduce((sum, r) => sum + r.icd_codes.length, 0).toString(), icon: Activity, color: "text-purple-400", bg: "bg-purple-500/10" },
-];
+function getStats(records: EMRRecord[]) {
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  return [
+    { label: "Total Records", value: records.length.toString(), icon: ClipboardList, color: "text-blue-400", bg: "bg-blue-500/10" },
+    { label: "This Week", value: records.filter(r => new Date(r.date) > oneWeekAgo).length.toString(), icon: Calendar, color: "text-green-400", bg: "bg-green-500/10" },
+    { label: "Pending Review", value: records.filter(r => r.status === "in-review").length.toString(), icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
+    { label: "ICD Codes Mapped", value: records.reduce((sum, r) => sum + (r.icd_codes?.length || 0), 0).toString(), icon: Activity, color: "text-purple-400", bg: "bg-purple-500/10" },
+  ];
+}
 
 // ─── EMR Detail View ──────────────────────────────────────────────────────────
 
@@ -604,9 +622,79 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "in-review" | "draft">("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "general" | "followup" | "emergency">("all");
   const [selectedRecord, setSelectedRecord] = useState<EMRRecord | null>(null);
+  const [records, setRecords] = useState<EMRRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch EMR records from Supabase
+  useEffect(() => {
+    async function fetchEMRRecords() {
+      try {
+        setLoading(true);
+        const supabase = getSupabaseBrowserClient();
+
+        const { data, error } = await supabase
+          .from("emr_entries")
+          .select(`
+            *,
+            consultation:consultations!inner(
+              id,
+              patient_id,
+              doctor_id,
+              started_at,
+              consultation_type,
+              status,
+              patient:patients!inner(
+                id,
+                name,
+                dob,
+                gender
+              ),
+              doctor:users!consultations_doctor_id_fkey(
+                name
+              )
+            )
+          `)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching EMR records:", error);
+          setRecords([]);
+          return;
+        }
+
+        // Transform the data to match our EMRRecord type
+        const transformedRecords: EMRRecord[] = (data || []).map((record: any) => {
+          const dob = new Date(record.consultation.patient.dob);
+          const age = new Date().getFullYear() - dob.getFullYear();
+
+          return {
+            ...record,
+            patient_name: record.consultation.patient.name,
+            patient_age: age,
+            patient_gender: record.consultation.patient.gender,
+            patient_id: record.consultation.patient.id,
+            doctor_name: record.consultation.doctor?.name || "Unknown Doctor",
+            date: record.consultation.started_at.split("T")[0],
+            consultation_type: record.consultation.consultation_type,
+            status: record.consultation.status === "completed" ? "completed" :
+                   record.consultation.status === "draft" ? "draft" : "in-review",
+          };
+        });
+
+        setRecords(transformedRecords);
+      } catch (err) {
+        console.error("Error in fetchEMRRecords:", err);
+        setRecords([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchEMRRecords();
+  }, []);
 
   const filteredRecords = useMemo(() => {
-    return MOCK_EMR_RECORDS.filter((r) => {
+    return records.filter((r) => {
       const matchesSearch =
         r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         r.chief_complaint.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -617,7 +705,20 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
       if (typeFilter !== "all" && r.consultation_type !== typeFilter) return false;
       return true;
     });
-  }, [searchQuery, statusFilter, typeFilter]);
+  }, [records, searchQuery, statusFilter, typeFilter]);
+
+  const stats = getStats(records);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+          <p className="text-sm text-[var(--foreground-muted)]">Loading EMR records...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -629,7 +730,7 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
             EMR Records
           </h1>
           <p className="text-sm text-[var(--foreground-muted)] mt-0.5">
-            {MOCK_EMR_RECORDS.length} records · FHIR-compliant electronic medical records
+            {records.length} records · FHIR-compliant electronic medical records
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -642,7 +743,7 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {STATS.map((stat, i) => {
+        {stats.map((stat, i) => {
           const Icon = stat.icon;
           return (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
@@ -699,7 +800,13 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
 
       {/* Records List */}
       <div className="space-y-2">
-        {filteredRecords.length === 0 ? (
+        {records.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-[var(--foreground-subtle)]">
+            <ClipboardList className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm">No EMR records found</p>
+            <p className="text-xs mt-1">Start a consultation to create your first EMR record</p>
+          </div>
+        ) : filteredRecords.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-[var(--foreground-subtle)]">
             <ClipboardList className="w-10 h-10 mb-3 opacity-30" />
             <p className="text-sm">No records match your search</p>

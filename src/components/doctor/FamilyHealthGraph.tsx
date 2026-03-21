@@ -27,21 +27,128 @@ interface FamilyMember {
 
 const FALLBACK_FAMILY_DATA: FamilyMember[] = [
   // Generation 0 — Grandparents
-  { id: "gf-p", name: "Krishnarao Sharma", relation: "Paternal Grandfather", age: 82, gender: "M", conditions: ["Type 2 Diabetes", "Hypertension"], deceased: true, generation: 0 },
-  { id: "gm-p", name: "Saraswati Sharma", relation: "Paternal Grandmother", age: 78, gender: "F", conditions: ["Hypertension", "Osteoporosis"], generation: 0 },
-  { id: "gf-m", name: "Shivaji Patel", relation: "Maternal Grandfather", age: 80, gender: "M", conditions: ["CAD", "Type 2 Diabetes"], deceased: true, generation: 0 },
-  { id: "gm-m", name: "Kamala Patel", relation: "Maternal Grandmother", age: 75, gender: "F", conditions: ["Type 2 Diabetes", "Cataract"], generation: 0 },
+  {
+    id: "gf-p",
+    name: "Krishnarao Sharma",
+    relation: "Paternal Grandfather",
+    age: 82,
+    gender: "M",
+    conditions: ["Type 2 Diabetes", "Hypertension"],
+    deceased: true,
+    generation: 0,
+  },
+  {
+    id: "gm-p",
+    name: "Saraswati Sharma",
+    relation: "Paternal Grandmother",
+    age: 78,
+    gender: "F",
+    conditions: ["Hypertension", "Osteoporosis"],
+    generation: 0,
+  },
+  {
+    id: "gf-m",
+    name: "Shivaji Patel",
+    relation: "Maternal Grandfather",
+    age: 80,
+    gender: "M",
+    conditions: ["CAD", "Type 2 Diabetes"],
+    deceased: true,
+    generation: 0,
+  },
+  {
+    id: "gm-m",
+    name: "Kamala Patel",
+    relation: "Maternal Grandmother",
+    age: 75,
+    gender: "F",
+    conditions: ["Type 2 Diabetes", "Cataract"],
+    generation: 0,
+  },
   // Generation 1 — Parents
-  { id: "father", name: "Suresh Sharma", relation: "Father", age: 58, gender: "M", conditions: ["Type 2 Diabetes", "Hypertension", "Dyslipidaemia"], parent_id: "gf-p", generation: 1 },
-  { id: "mother", name: "Sunita Sharma", relation: "Mother", age: 54, gender: "F", conditions: ["Hypothyroidism", "Hypertension"], parent_id: "gf-m", generation: 1 },
-  { id: "uncle", name: "Vijay Sharma", relation: "Paternal Uncle", age: 52, gender: "M", conditions: ["Type 2 Diabetes", "CAD"], parent_id: "gf-p", generation: 1 },
+  {
+    id: "father",
+    name: "Suresh Sharma",
+    relation: "Father",
+    age: 58,
+    gender: "M",
+    conditions: ["Type 2 Diabetes", "Hypertension", "Dyslipidaemia"],
+    parent_id: "gf-p",
+    generation: 1,
+  },
+  {
+    id: "mother",
+    name: "Sunita Sharma",
+    relation: "Mother",
+    age: 54,
+    gender: "F",
+    conditions: ["Hypothyroidism", "Hypertension"],
+    parent_id: "gf-m",
+    generation: 1,
+  },
+  {
+    id: "uncle",
+    name: "Vijay Sharma",
+    relation: "Paternal Uncle",
+    age: 52,
+    gender: "M",
+    conditions: ["Type 2 Diabetes", "CAD"],
+    parent_id: "gf-p",
+    generation: 1,
+  },
   // Generation 2 — Patient + Siblings
-  { id: "patient", name: "Priya Sharma", relation: "Patient", age: 45, gender: "F", conditions: ["Type 2 Diabetes", "Hypertension"], isPatient: true, parent_id: "father", generation: 2 },
-  { id: "brother", name: "Rahul Sharma", relation: "Brother", age: 42, gender: "M", conditions: ["Pre-diabetes", "Hypertension"], parent_id: "father", generation: 2 },
-  { id: "sister", name: "Neha Sharma", relation: "Sister", age: 38, gender: "F", conditions: ["Hypothyroidism"], parent_id: "father", generation: 2 },
+  {
+    id: "patient",
+    name: "Priya Sharma",
+    relation: "Patient",
+    age: 45,
+    gender: "F",
+    conditions: ["Type 2 Diabetes", "Hypertension"],
+    isPatient: true,
+    parent_id: "father",
+    generation: 2,
+  },
+  {
+    id: "brother",
+    name: "Rahul Sharma",
+    relation: "Brother",
+    age: 42,
+    gender: "M",
+    conditions: ["Pre-diabetes", "Hypertension"],
+    parent_id: "father",
+    generation: 2,
+  },
+  {
+    id: "sister",
+    name: "Neha Sharma",
+    relation: "Sister",
+    age: 38,
+    gender: "F",
+    conditions: ["Hypothyroidism"],
+    parent_id: "father",
+    generation: 2,
+  },
   // Generation 3 — Children
-  { id: "son", name: "Arjun Sharma", relation: "Son", age: 19, gender: "M", conditions: ["Asthma"], parent_id: "patient", generation: 3 },
-  { id: "daughter", name: "Kavya Sharma", relation: "Daughter", age: 16, gender: "F", conditions: [], parent_id: "patient", generation: 3 },
+  {
+    id: "son",
+    name: "Arjun Sharma",
+    relation: "Son",
+    age: 19,
+    gender: "M",
+    conditions: ["Asthma"],
+    parent_id: "patient",
+    generation: 3,
+  },
+  {
+    id: "daughter",
+    name: "Kavya Sharma",
+    relation: "Daughter",
+    age: 16,
+    gender: "F",
+    conditions: [],
+    parent_id: "patient",
+    generation: 3,
+  },
 ];
 
 // ─── Condition → colour mapping ───────────────────────────────────────────────
@@ -49,16 +156,17 @@ const FALLBACK_FAMILY_DATA: FamilyMember[] = [
 const CONDITION_COLORS: Record<string, string> = {
   "Type 2 Diabetes": "bg-amber-500 text-white",
   "Pre-diabetes": "bg-yellow-500 text-black",
-  "Hypertension": "bg-red-500 text-white",
-  "Hypothyroidism": "bg-purple-500 text-white",
-  "Dyslipidaemia": "bg-orange-500 text-white",
-  "CAD": "bg-rose-600 text-white",
-  "Osteoporosis": "bg-slate-500 text-white",
-  "Cataract": "bg-sky-500 text-white",
-  "Asthma": "bg-blue-500 text-white",
+  Hypertension: "bg-red-500 text-white",
+  Hypothyroidism: "bg-purple-500 text-white",
+  Dyslipidaemia: "bg-orange-500 text-white",
+  CAD: "bg-rose-600 text-white",
+  Osteoporosis: "bg-slate-500 text-white",
+  Cataract: "bg-sky-500 text-white",
+  Asthma: "bg-blue-500 text-white",
 };
 
-const DEFAULT_CONDITION_COLOR = "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border)]";
+const DEFAULT_CONDITION_COLOR =
+  "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border)]";
 
 // ─── SVG layout constants ─────────────────────────────────────────────────────
 
@@ -73,7 +181,9 @@ const SVG_H = SVG_BASE_Y + 3 * (NODE_H + V_GAP) + NODE_H + 20;
 
 // ─── Auto-layout calculator ──────────────────────────────────────────────────
 
-function calculateLayout(members: FamilyMember[]): Record<string, { cx: number; cy: number }> {
+function calculateLayout(
+  members: FamilyMember[],
+): Record<string, { cx: number; cy: number }> {
   // Group members by generation
   const generations: Record<number, FamilyMember[]> = {};
   members.forEach((m) => {
@@ -83,7 +193,9 @@ function calculateLayout(members: FamilyMember[]): Record<string, { cx: number; 
   });
 
   const layout: Record<string, { cx: number; cy: number }> = {};
-  const genKeys = Object.keys(generations).map(Number).sort((a, b) => a - b);
+  const genKeys = Object.keys(generations)
+    .map(Number)
+    .sort((a, b) => a - b);
 
   genKeys.forEach((gen) => {
     const genMembers = generations[gen];
@@ -170,8 +282,16 @@ function MemberNode({
 
   const isPatient = member.isPatient || member.is_patient;
   const isDeceased = member.deceased;
-  const fill = isPatient ? "rgba(59,130,246,0.15)" : isDeceased ? "rgba(100,100,100,0.1)" : "rgba(30,30,30,0.6)";
-  const strokeColor = isPatient ? "#3b82f6" : member.conditions.length > 1 ? "#f59e0b" : "#374151";
+  const fill = isPatient
+    ? "rgba(59,130,246,0.15)"
+    : isDeceased
+      ? "rgba(100,100,100,0.1)"
+      : "rgba(30,30,30,0.6)";
+  const strokeColor = isPatient
+    ? "#3b82f6"
+    : member.conditions.length > 1
+      ? "#f59e0b"
+      : "#374151";
 
   return (
     <g
@@ -192,7 +312,16 @@ function MemberNode({
         className="transition-all group-hover:stroke-blue-400"
       />
       {isDeceased && (
-        <line x1={0} y1={NODE_H} x2={NODE_W} y2={0} stroke="#6b7280" strokeWidth={1} strokeDasharray="4 3" className="pointer-events-none" />
+        <line
+          x1={0}
+          y1={NODE_H}
+          x2={NODE_W}
+          y2={0}
+          stroke="#6b7280"
+          strokeWidth={1}
+          strokeDasharray="4 3"
+          className="pointer-events-none"
+        />
       )}
       {/* Name */}
       <text
@@ -226,14 +355,25 @@ function MemberNode({
           width={38}
           height={11}
           rx={5}
-          fill={cond === "Type 2 Diabetes" || cond === "Pre-diabetes" ? "rgba(245,158,11,0.3)" :
-            cond === "Hypertension" || cond === "CAD" ? "rgba(239,68,68,0.3)" :
-              cond === "Hypothyroidism" ? "rgba(168,85,247,0.3)" : "rgba(59,130,246,0.25)"}
+          fill={
+            cond === "Type 2 Diabetes" || cond === "Pre-diabetes"
+              ? "rgba(245,158,11,0.3)"
+              : cond === "Hypertension" || cond === "CAD"
+                ? "rgba(239,68,68,0.3)"
+                : cond === "Hypothyroidism"
+                  ? "rgba(168,85,247,0.3)"
+                  : "rgba(59,130,246,0.25)"
+          }
           className="pointer-events-none"
         />
       ))}
       {member.conditions.slice(0, 2).map((cond, i) => {
-        const shortLabel = cond.replace("Type 2 ", "T2").replace("Hypertension", "HTN").replace("Hypothyroidism", "Thyroid").replace("Dyslipidaemia", "Dyslip").replace("Osteoporosis", "Osteo");
+        const shortLabel = cond
+          .replace("Type 2 ", "T2")
+          .replace("Hypertension", "HTN")
+          .replace("Hypothyroidism", "Thyroid")
+          .replace("Dyslipidaemia", "Dyslip")
+          .replace("Osteoporosis", "Osteo");
         return (
           <text
             key={`txt-${i}`}
@@ -241,9 +381,13 @@ function MemberNode({
             y={NODE_H - 6.5}
             textAnchor="middle"
             fontSize={7}
-            fill={cond === "Hypertension" || cond === "CAD" ? "#fca5a5" :
-              cond === "Type 2 Diabetes" || cond === "Pre-diabetes" ? "#fcd34d" :
-                "#a5b4fc"}
+            fill={
+              cond === "Hypertension" || cond === "CAD"
+                ? "#fca5a5"
+                : cond === "Type 2 Diabetes" || cond === "Pre-diabetes"
+                  ? "#fcd34d"
+                  : "#a5b4fc"
+            }
             className="pointer-events-none"
           >
             {shortLabel.substring(0, 7)}
@@ -251,7 +395,14 @@ function MemberNode({
         );
       })}
       {member.conditions.length > 2 && (
-        <text x={NODE_W - 6} y={NODE_H - 6} textAnchor="end" fontSize={7} fill="#9ca3af" className="pointer-events-none">
+        <text
+          x={NODE_W - 6}
+          y={NODE_H - 6}
+          textAnchor="end"
+          fontSize={7}
+          fill="#9ca3af"
+          className="pointer-events-none"
+        >
           +{member.conditions.length - 2}
         </text>
       )}
@@ -304,9 +455,12 @@ interface FamilyHealthGraphProps {
 }
 
 export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
-  const [familyData, setFamilyData] = useState<FamilyMember[]>(FALLBACK_FAMILY_DATA);
+  const [familyData, setFamilyData] =
+    useState<FamilyMember[]>(FALLBACK_FAMILY_DATA);
   const [loading, setLoading] = useState(false);
-  const [dataSource, setDataSource] = useState<"fallback" | "database">("fallback");
+  const [dataSource, setDataSource] = useState<"fallback" | "database">(
+    "fallback",
+  );
   const [selected, setSelected] = useState<FamilyMember | null>(null);
 
   // Fetch from DB if patientId is provided
@@ -321,11 +475,13 @@ export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
           const data = await res.json();
           if (data.members && data.members.length > 0) {
             // Normalize DB fields to component fields
-            const normalized: FamilyMember[] = data.members.map((m: Record<string, unknown>) => ({
-              ...m,
-              isPatient: m.is_patient ?? false,
-              conditions: m.conditions ?? [],
-            }));
+            const normalized: FamilyMember[] = data.members.map(
+              (m: Record<string, unknown>) => ({
+                ...m,
+                isPatient: m.is_patient ?? false,
+                conditions: m.conditions ?? [],
+              }),
+            );
             setFamilyData(normalized);
             setDataSource("database");
           }
@@ -346,8 +502,14 @@ export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
 
   // Aggregate condition frequency for legend
   const condCounts: Record<string, number> = {};
-  familyData.forEach((m) => m.conditions.forEach((c) => { condCounts[c] = (condCounts[c] ?? 0) + 1; }));
-  const topConditions = Object.entries(condCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  familyData.forEach((m) =>
+    m.conditions.forEach((c) => {
+      condCounts[c] = (condCounts[c] ?? 0) + 1;
+    }),
+  );
+  const topConditions = Object.entries(condCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
 
   return (
     <Card className="border-[var(--border)]">
@@ -357,9 +519,16 @@ export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
             <GitBranch className="w-3.5 h-3.5 text-purple-400" />
           </div>
           Family Health Graph
-          <Badge variant="secondary" className="ml-auto text-[9px]">{familyData.length} members</Badge>
+          <Badge variant="secondary" className="ml-auto text-[9px]">
+            {familyData.length} members
+          </Badge>
           {dataSource === "database" && (
-            <Badge variant="outline" className="text-[9px] text-green-400 border-green-500/30">DB</Badge>
+            <Badge
+              variant="outline"
+              className="text-[9px] text-green-400 border-green-500/30"
+            >
+              DB
+            </Badge>
           )}
         </CardTitle>
       </CardHeader>
@@ -367,7 +536,9 @@ export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
         {loading ? (
           <div className="flex items-center justify-center h-32 gap-2">
             <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-            <p className="text-xs text-[var(--foreground-subtle)]">Loading family data...</p>
+            <p className="text-xs text-[var(--foreground-subtle)]">
+              Loading family data...
+            </p>
           </div>
         ) : (
           <>
@@ -378,7 +549,7 @@ export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
                   key={cond}
                   className={cn(
                     "flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium",
-                    CONDITION_COLORS[cond] ?? DEFAULT_CONDITION_COLOR
+                    CONDITION_COLORS[cond] ?? DEFAULT_CONDITION_COLOR,
                   )}
                 >
                   <span>{cond}</span>
@@ -397,7 +568,12 @@ export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
               >
                 <Connectors connections={connections} layout={layout} />
                 {familyData.map((member) => (
-                  <MemberNode key={member.id} member={member} layout={layout} onSelect={setSelected} />
+                  <MemberNode
+                    key={member.id}
+                    member={member}
+                    layout={layout}
+                    onSelect={setSelected}
+                  />
                 ))}
               </svg>
             </div>
@@ -416,7 +592,9 @@ export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
                 <div className="w-4 h-0.5 bg-amber-500" />
                 2+ conditions
               </div>
-              <span className="ml-auto italic">Click a node to view details</span>
+              <span className="ml-auto italic">
+                Click a node to view details
+              </span>
             </div>
 
             {/* Member detail drawer */}
@@ -430,9 +608,12 @@ export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-[var(--foreground)]">{selected.name}</p>
+                      <p className="text-sm font-semibold text-[var(--foreground)]">
+                        {selected.name}
+                      </p>
                       <p className="text-[10px] text-[var(--foreground-subtle)]">
-                        {selected.relation} · {selected.age}y · {selected.gender === "M" ? "Male" : "Female"}
+                        {selected.relation} · {selected.age}y ·{" "}
+                        {selected.gender === "M" ? "Male" : "Female"}
                         {selected.deceased ? " · Deceased" : ""}
                       </p>
                     </div>
@@ -453,7 +634,10 @@ export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
                         {selected.conditions.map((c) => (
                           <span
                             key={c}
-                            className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium", CONDITION_COLORS[c] ?? DEFAULT_CONDITION_COLOR)}
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-[10px] font-medium",
+                              CONDITION_COLORS[c] ?? DEFAULT_CONDITION_COLOR,
+                            )}
                           >
                             {c}
                           </span>
@@ -470,7 +654,8 @@ export function FamilyHealthGraph({ patientId }: FamilyHealthGraphProps) {
                     <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
                       <Info className="w-3 h-3 text-blue-400 shrink-0" />
                       <p className="text-[10px] text-blue-300">
-                        Strong family history of T2DM and HTN — high genetic risk. Screen every 6 months.
+                        Strong family history of T2DM and HTN — high genetic
+                        risk. Screen every 6 months.
                       </p>
                     </div>
                   )}

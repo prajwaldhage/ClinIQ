@@ -8,6 +8,24 @@ let browserClient: ReturnType<typeof createClient> | null = null;
 
 export function getSupabaseBrowserClient() {
   if (browserClient) return browserClient;
+
+  // Debug logging
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Supabase configuration missing:", {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseAnonKey,
+      urlStart: supabaseUrl?.substring(0, 20),
+      keyStart: supabaseAnonKey?.substring(0, 10),
+    });
+    throw new Error("Supabase URL or Anon Key is missing from environment variables");
+  }
+
+  console.log("Initializing Supabase client:", {
+    url: supabaseUrl,
+    keyPrefix: supabaseAnonKey.substring(0, 10) + "...",
+    keyLength: supabaseAnonKey.length,
+  });
+
   browserClient = createClient(supabaseUrl, supabaseAnonKey);
   return browserClient;
 }

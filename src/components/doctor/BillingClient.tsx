@@ -1,18 +1,39 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  CreditCard, Search, IndianRupee, Clock, Receipt, Stethoscope,
-  FlaskConical, Wrench, Pill, TrendingUp, Calendar, User,
-  Download, Printer, ChevronRight, ChevronDown, ChevronUp,
-  CheckCircle2, AlertTriangle, FileText, X, Eye, Filter,
-  Package
+  CreditCard,
+  Search,
+  IndianRupee,
+  Clock,
+  Receipt,
+  Stethoscope,
+  FlaskConical,
+  Wrench,
+  Pill,
+  TrendingUp,
+  Calendar,
+  User,
+  Download,
+  Printer,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  AlertTriangle,
+  FileText,
+  X,
+  Eye,
+  Filter,
+  Package,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,11 +45,16 @@ function formatINR(amount: number): string {
   }).format(amount);
 }
 
-// ─── Mock Billing Data ────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface BillingLineItem {
   description: string;
-  category: "consultation" | "procedure" | "investigation" | "medication" | "equipment";
+  category:
+    | "consultation"
+    | "procedure"
+    | "investigation"
+    | "medication"
+    | "equipment";
   quantity: number;
   unit_price: number;
   total: number;
@@ -59,7 +85,7 @@ interface BillingRecord {
   receipt_no: string;
 }
 
-const MOCK_BILLING: BillingRecord[] = [
+const MOCK_BILLING_BACKUP: BillingRecord[] = [
   {
     id: "bill-001",
     consultation_id: "c-001",
@@ -72,13 +98,55 @@ const MOCK_BILLING: BillingRecord[] = [
     consultation_type: "followup",
     duration_minutes: 22,
     line_items: [
-      { description: "Consultation Fee (Follow-up)", category: "consultation", quantity: 1, unit_price: 300, total: 300 },
-      { description: "Extended Consultation (22 min)", category: "consultation", quantity: 22, unit_price: 12, total: 264 },
-      { description: "Blood Glucose / HbA1c", category: "investigation", quantity: 1, unit_price: 150, total: 150 },
-      { description: "Fundoscopy", category: "procedure", quantity: 1, unit_price: 250, total: 250 },
-      { description: "Complete Blood Count (CBC)", category: "investigation", quantity: 1, unit_price: 250, total: 250 },
-      { description: "Renal Function Test", category: "investigation", quantity: 1, unit_price: 350, total: 350 },
-      { description: "Urine Routine + Microscopy", category: "investigation", quantity: 1, unit_price: 150, total: 150 },
+      {
+        description: "Consultation Fee (Follow-up)",
+        category: "consultation",
+        quantity: 1,
+        unit_price: 300,
+        total: 300,
+      },
+      {
+        description: "Extended Consultation (22 min)",
+        category: "consultation",
+        quantity: 22,
+        unit_price: 12,
+        total: 264,
+      },
+      {
+        description: "Blood Glucose / HbA1c",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 150,
+        total: 150,
+      },
+      {
+        description: "Fundoscopy",
+        category: "procedure",
+        quantity: 1,
+        unit_price: 250,
+        total: 250,
+      },
+      {
+        description: "Complete Blood Count (CBC)",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 250,
+        total: 250,
+      },
+      {
+        description: "Renal Function Test",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 350,
+        total: 350,
+      },
+      {
+        description: "Urine Routine + Microscopy",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 150,
+        total: 150,
+      },
     ],
     subtotal: 1714,
     discount: 0,
@@ -104,15 +172,69 @@ const MOCK_BILLING: BillingRecord[] = [
     consultation_type: "general",
     duration_minutes: 35,
     line_items: [
-      { description: "Consultation Fee (General)", category: "consultation", quantity: 1, unit_price: 300, total: 300 },
-      { description: "Extended Consultation (35 min)", category: "consultation", quantity: 35, unit_price: 12, total: 420 },
-      { description: "12-Lead ECG", category: "investigation", quantity: 1, unit_price: 250, total: 250 },
-      { description: "Clinical Auscultation", category: "procedure", quantity: 1, unit_price: 150, total: 150 },
-      { description: "Cardiac Enzymes (Troponin)", category: "investigation", quantity: 1, unit_price: 900, total: 900 },
-      { description: "Lipid Profile", category: "investigation", quantity: 1, unit_price: 400, total: 400 },
-      { description: "Renal Function Test", category: "investigation", quantity: 1, unit_price: 350, total: 350 },
-      { description: "Chest X-Ray", category: "investigation", quantity: 1, unit_price: 500, total: 500 },
-      { description: "Pulse Oximetry Monitoring", category: "equipment", quantity: 1, unit_price: 100, total: 100 },
+      {
+        description: "Consultation Fee (General)",
+        category: "consultation",
+        quantity: 1,
+        unit_price: 300,
+        total: 300,
+      },
+      {
+        description: "Extended Consultation (35 min)",
+        category: "consultation",
+        quantity: 35,
+        unit_price: 12,
+        total: 420,
+      },
+      {
+        description: "12-Lead ECG",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 250,
+        total: 250,
+      },
+      {
+        description: "Clinical Auscultation",
+        category: "procedure",
+        quantity: 1,
+        unit_price: 150,
+        total: 150,
+      },
+      {
+        description: "Cardiac Enzymes (Troponin)",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 900,
+        total: 900,
+      },
+      {
+        description: "Lipid Profile",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 400,
+        total: 400,
+      },
+      {
+        description: "Renal Function Test",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 350,
+        total: 350,
+      },
+      {
+        description: "Chest X-Ray",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 500,
+        total: 500,
+      },
+      {
+        description: "Pulse Oximetry Monitoring",
+        category: "equipment",
+        quantity: 1,
+        unit_price: 100,
+        total: 100,
+      },
     ],
     subtotal: 3370,
     discount: 0,
@@ -137,12 +259,48 @@ const MOCK_BILLING: BillingRecord[] = [
     consultation_type: "general",
     duration_minutes: 15,
     line_items: [
-      { description: "Consultation Fee (General)", category: "consultation", quantity: 1, unit_price: 300, total: 300 },
-      { description: "Consultation Time (15 min)", category: "consultation", quantity: 15, unit_price: 12, total: 180 },
-      { description: "Complete Blood Count (CBC)", category: "investigation", quantity: 1, unit_price: 250, total: 250 },
-      { description: "Dengue Serology (NS1/IgM)", category: "investigation", quantity: 1, unit_price: 600, total: 600 },
-      { description: "Malaria Thick Smear / ICT", category: "investigation", quantity: 1, unit_price: 300, total: 300 },
-      { description: "Urine Routine + Microscopy", category: "investigation", quantity: 1, unit_price: 150, total: 150 },
+      {
+        description: "Consultation Fee (General)",
+        category: "consultation",
+        quantity: 1,
+        unit_price: 300,
+        total: 300,
+      },
+      {
+        description: "Consultation Time (15 min)",
+        category: "consultation",
+        quantity: 15,
+        unit_price: 12,
+        total: 180,
+      },
+      {
+        description: "Complete Blood Count (CBC)",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 250,
+        total: 250,
+      },
+      {
+        description: "Dengue Serology (NS1/IgM)",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 600,
+        total: 600,
+      },
+      {
+        description: "Malaria Thick Smear / ICT",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 300,
+        total: 300,
+      },
+      {
+        description: "Urine Routine + Microscopy",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 150,
+        total: 150,
+      },
     ],
     subtotal: 1780,
     discount: 0,
@@ -168,13 +326,55 @@ const MOCK_BILLING: BillingRecord[] = [
     consultation_type: "followup",
     duration_minutes: 18,
     line_items: [
-      { description: "Consultation Fee (Follow-up)", category: "consultation", quantity: 1, unit_price: 300, total: 300 },
-      { description: "Consultation Time (18 min)", category: "consultation", quantity: 18, unit_price: 12, total: 216 },
-      { description: "Renal Function Test", category: "investigation", quantity: 1, unit_price: 350, total: 350 },
-      { description: "Electrolytes Panel", category: "investigation", quantity: 1, unit_price: 300, total: 300 },
-      { description: "24hr Urine Protein", category: "investigation", quantity: 1, unit_price: 500, total: 500 },
-      { description: "Renal Doppler USG", category: "investigation", quantity: 1, unit_price: 800, total: 800 },
-      { description: "Fundoscopy", category: "procedure", quantity: 1, unit_price: 250, total: 250 },
+      {
+        description: "Consultation Fee (Follow-up)",
+        category: "consultation",
+        quantity: 1,
+        unit_price: 300,
+        total: 300,
+      },
+      {
+        description: "Consultation Time (18 min)",
+        category: "consultation",
+        quantity: 18,
+        unit_price: 12,
+        total: 216,
+      },
+      {
+        description: "Renal Function Test",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 350,
+        total: 350,
+      },
+      {
+        description: "Electrolytes Panel",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 300,
+        total: 300,
+      },
+      {
+        description: "24hr Urine Protein",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 500,
+        total: 500,
+      },
+      {
+        description: "Renal Doppler USG",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 800,
+        total: 800,
+      },
+      {
+        description: "Fundoscopy",
+        category: "procedure",
+        quantity: 1,
+        unit_price: 250,
+        total: 250,
+      },
     ],
     subtotal: 2716,
     discount: 200,
@@ -199,9 +399,27 @@ const MOCK_BILLING: BillingRecord[] = [
     consultation_type: "general",
     duration_minutes: 12,
     line_items: [
-      { description: "Consultation Fee (General)", category: "consultation", quantity: 1, unit_price: 300, total: 300 },
-      { description: "Consultation Time (12 min)", category: "consultation", quantity: 12, unit_price: 12, total: 144 },
-      { description: "IgE Levels", category: "investigation", quantity: 1, unit_price: 400, total: 400 },
+      {
+        description: "Consultation Fee (General)",
+        category: "consultation",
+        quantity: 1,
+        unit_price: 300,
+        total: 300,
+      },
+      {
+        description: "Consultation Time (12 min)",
+        category: "consultation",
+        quantity: 12,
+        unit_price: 12,
+        total: 144,
+      },
+      {
+        description: "IgE Levels",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 400,
+        total: 400,
+      },
     ],
     subtotal: 844,
     discount: 0,
@@ -227,26 +445,146 @@ const MOCK_BILLING: BillingRecord[] = [
     consultation_type: "emergency",
     duration_minutes: 45,
     line_items: [
-      { description: "Consultation Fee (Emergency)", category: "consultation", quantity: 1, unit_price: 500, total: 500 },
-      { description: "Extended Consultation (45 min)", category: "consultation", quantity: 45, unit_price: 12, total: 540 },
-      { description: "Nebulisation — SABA (×3)", category: "procedure", quantity: 3, unit_price: 350, total: 1050 },
-      { description: "Nebulisation — Ipratropium (×2)", category: "procedure", quantity: 2, unit_price: 350, total: 700 },
-      { description: "Arterial Blood Gas (ABG)", category: "investigation", quantity: 1, unit_price: 700, total: 700 },
-      { description: "Complete Blood Count (CBC)", category: "investigation", quantity: 1, unit_price: 250, total: 250 },
-      { description: "CRP (C-Reactive Protein)", category: "investigation", quantity: 1, unit_price: 400, total: 400 },
-      { description: "12-Lead ECG", category: "investigation", quantity: 1, unit_price: 250, total: 250 },
-      { description: "Chest X-Ray", category: "investigation", quantity: 1, unit_price: 500, total: 500 },
-      { description: "Blood Glucose / HbA1c", category: "investigation", quantity: 1, unit_price: 150, total: 150 },
-      { description: "Digoxin Level", category: "investigation", quantity: 1, unit_price: 500, total: 500 },
-      { description: "Sputum Culture & Sensitivity", category: "investigation", quantity: 1, unit_price: 800, total: 800 },
-      { description: "Oxygen Therapy (6hrs)", category: "equipment", quantity: 6, unit_price: 200, total: 1200 },
-      { description: "Cardiac Monitoring (6hrs)", category: "equipment", quantity: 6, unit_price: 500, total: 3000 },
-      { description: "Pulse Oximetry Monitoring", category: "equipment", quantity: 1, unit_price: 100, total: 100 },
-      { description: "Glucometry (×4)", category: "equipment", quantity: 4, unit_price: 80, total: 320 },
-      { description: "IV Access + Fluid", category: "procedure", quantity: 1, unit_price: 250, total: 250 },
-      { description: "Insulin Glargine Administration", category: "medication", quantity: 1, unit_price: 150, total: 150 },
-      { description: "Prednisolone 40mg", category: "medication", quantity: 5, unit_price: 8, total: 40 },
-      { description: "Azithromycin 500mg", category: "medication", quantity: 5, unit_price: 35, total: 175 },
+      {
+        description: "Consultation Fee (Emergency)",
+        category: "consultation",
+        quantity: 1,
+        unit_price: 500,
+        total: 500,
+      },
+      {
+        description: "Extended Consultation (45 min)",
+        category: "consultation",
+        quantity: 45,
+        unit_price: 12,
+        total: 540,
+      },
+      {
+        description: "Nebulisation — SABA (×3)",
+        category: "procedure",
+        quantity: 3,
+        unit_price: 350,
+        total: 1050,
+      },
+      {
+        description: "Nebulisation — Ipratropium (×2)",
+        category: "procedure",
+        quantity: 2,
+        unit_price: 350,
+        total: 700,
+      },
+      {
+        description: "Arterial Blood Gas (ABG)",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 700,
+        total: 700,
+      },
+      {
+        description: "Complete Blood Count (CBC)",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 250,
+        total: 250,
+      },
+      {
+        description: "CRP (C-Reactive Protein)",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 400,
+        total: 400,
+      },
+      {
+        description: "12-Lead ECG",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 250,
+        total: 250,
+      },
+      {
+        description: "Chest X-Ray",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 500,
+        total: 500,
+      },
+      {
+        description: "Blood Glucose / HbA1c",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 150,
+        total: 150,
+      },
+      {
+        description: "Digoxin Level",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 500,
+        total: 500,
+      },
+      {
+        description: "Sputum Culture & Sensitivity",
+        category: "investigation",
+        quantity: 1,
+        unit_price: 800,
+        total: 800,
+      },
+      {
+        description: "Oxygen Therapy (6hrs)",
+        category: "equipment",
+        quantity: 6,
+        unit_price: 200,
+        total: 1200,
+      },
+      {
+        description: "Cardiac Monitoring (6hrs)",
+        category: "equipment",
+        quantity: 6,
+        unit_price: 500,
+        total: 3000,
+      },
+      {
+        description: "Pulse Oximetry Monitoring",
+        category: "equipment",
+        quantity: 1,
+        unit_price: 100,
+        total: 100,
+      },
+      {
+        description: "Glucometry (×4)",
+        category: "equipment",
+        quantity: 4,
+        unit_price: 80,
+        total: 320,
+      },
+      {
+        description: "IV Access + Fluid",
+        category: "procedure",
+        quantity: 1,
+        unit_price: 250,
+        total: 250,
+      },
+      {
+        description: "Insulin Glargine Administration",
+        category: "medication",
+        quantity: 1,
+        unit_price: 150,
+        total: 150,
+      },
+      {
+        description: "Prednisolone 40mg",
+        category: "medication",
+        quantity: 5,
+        unit_price: 8,
+        total: 40,
+      },
+      {
+        description: "Azithromycin 500mg",
+        category: "medication",
+        quantity: 5,
+        unit_price: 35,
+        total: 175,
+      },
     ],
     subtotal: 11075,
     discount: 500,
@@ -263,10 +601,21 @@ const MOCK_BILLING: BillingRecord[] = [
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
-const CATEGORY_CONFIG: Record<string, { icon: typeof Stethoscope; color: string; bg: string }> = {
-  consultation: { icon: Stethoscope, color: "text-blue-400", bg: "bg-blue-500/10" },
+const CATEGORY_CONFIG: Record<
+  string,
+  { icon: typeof Stethoscope; color: string; bg: string }
+> = {
+  consultation: {
+    icon: Stethoscope,
+    color: "text-blue-400",
+    bg: "bg-blue-500/10",
+  },
   procedure: { icon: Wrench, color: "text-purple-400", bg: "bg-purple-500/10" },
-  investigation: { icon: FlaskConical, color: "text-cyan-400", bg: "bg-cyan-500/10" },
+  investigation: {
+    icon: FlaskConical,
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/10",
+  },
   medication: { icon: Pill, color: "text-green-400", bg: "bg-green-500/10" },
   equipment: { icon: Package, color: "text-amber-400", bg: "bg-amber-500/10" },
 };
@@ -274,39 +623,91 @@ const CATEGORY_CONFIG: Record<string, { icon: typeof Stethoscope; color: string;
 const PAYMENT_STATUS_CONFIG = {
   paid: { label: "Paid", variant: "success" as const, icon: CheckCircle2 },
   pending: { label: "Pending", variant: "warning" as const, icon: Clock },
-  partial: { label: "Partial", variant: "default" as const, icon: AlertTriangle },
-  "insurance-pending": { label: "Insurance Pending", variant: "default" as const, icon: FileText },
+  partial: {
+    label: "Partial",
+    variant: "default" as const,
+    icon: AlertTriangle,
+  },
+  "insurance-pending": {
+    label: "Insurance Pending",
+    variant: "default" as const,
+    icon: FileText,
+  },
 };
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 function getStats(bills: BillingRecord[]) {
   const totalRevenue = bills.reduce((s, b) => s + b.total, 0);
-  const collected = bills.filter(b => b.payment_status === "paid").reduce((s, b) => s + b.patient_payable, 0) +
-    bills.filter(b => b.payment_status === "paid").reduce((s, b) => s + b.insurance_covered, 0);
-  const pending = bills.filter(b => b.payment_status === "pending" || b.payment_status === "insurance-pending").reduce((s, b) => s + b.total, 0);
+  const collected =
+    bills
+      .filter((b) => b.payment_status === "paid")
+      .reduce((s, b) => s + b.patient_payable, 0) +
+    bills
+      .filter((b) => b.payment_status === "paid")
+      .reduce((s, b) => s + b.insurance_covered, 0);
+  const pending = bills
+    .filter(
+      (b) =>
+        b.payment_status === "pending" ||
+        b.payment_status === "insurance-pending",
+    )
+    .reduce((s, b) => s + b.total, 0);
   const insTotal = bills.reduce((s, b) => s + b.insurance_covered, 0);
 
   return [
-    { label: "Total Revenue", value: formatINR(totalRevenue), icon: IndianRupee, color: "text-green-400", bg: "bg-green-500/10" },
-    { label: "Collected", value: formatINR(collected), icon: CheckCircle2, color: "text-blue-400", bg: "bg-blue-500/10" },
-    { label: "Pending", value: formatINR(pending), icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
-    { label: "Insurance Claims", value: formatINR(insTotal), icon: FileText, color: "text-purple-400", bg: "bg-purple-500/10" },
+    {
+      label: "Total Revenue",
+      value: formatINR(totalRevenue),
+      icon: IndianRupee,
+      color: "text-green-400",
+      bg: "bg-green-500/10",
+    },
+    {
+      label: "Collected",
+      value: formatINR(collected),
+      icon: CheckCircle2,
+      color: "text-blue-400",
+      bg: "bg-blue-500/10",
+    },
+    {
+      label: "Pending",
+      value: formatINR(pending),
+      icon: Clock,
+      color: "text-amber-400",
+      bg: "bg-amber-500/10",
+    },
+    {
+      label: "Insurance Claims",
+      value: formatINR(insTotal),
+      icon: FileText,
+      color: "text-purple-400",
+      bg: "bg-purple-500/10",
+    },
   ];
 }
 
 // ─── Billing Detail Drawer ────────────────────────────────────────────────────
 
-function BillingDetail({ bill, onClose }: { bill: BillingRecord; onClose: () => void }) {
+function BillingDetail({
+  bill,
+  onClose,
+}: {
+  bill: BillingRecord;
+  onClose: () => void;
+}) {
   const statusCfg = PAYMENT_STATUS_CONFIG[bill.payment_status];
   const StatusIcon = statusCfg.icon;
 
   // Group line items by category
-  const grouped = bill.line_items.reduce<Record<string, BillingLineItem[]>>((acc, item) => {
-    if (!acc[item.category]) acc[item.category] = [];
-    acc[item.category].push(item);
-    return acc;
-  }, {});
+  const grouped = bill.line_items.reduce<Record<string, BillingLineItem[]>>(
+    (acc, item) => {
+      if (!acc[item.category]) acc[item.category] = [];
+      acc[item.category].push(item);
+      return acc;
+    },
+    {},
+  );
 
   return (
     <motion.div
@@ -314,7 +715,9 @@ function BillingDetail({ bill, onClose }: { bill: BillingRecord; onClose: () => 
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <motion.div
         initial={{ x: 600 }}
@@ -328,14 +731,23 @@ function BillingDetail({ bill, onClose }: { bill: BillingRecord; onClose: () => 
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <Badge variant={statusCfg.variant} className="gap-1 text-[10px]">
+                <Badge
+                  variant={statusCfg.variant}
+                  className="gap-1 text-[10px]"
+                >
                   <StatusIcon className="w-3 h-3" /> {statusCfg.label}
                 </Badge>
-                <span className="text-[10px] text-[var(--foreground-subtle)] font-mono">{bill.receipt_no}</span>
+                <span className="text-[10px] text-[var(--foreground-subtle)] font-mono">
+                  {bill.receipt_no}
+                </span>
               </div>
-              <h2 className="text-base font-bold text-[var(--foreground)]">{bill.patient_name}</h2>
+              <h2 className="text-base font-bold text-[var(--foreground)]">
+                {bill.patient_name}
+              </h2>
               <p className="text-xs text-[var(--foreground-muted)]">
-                {bill.patient_age}{bill.patient_gender} · {formatDate(bill.date)} · {bill.doctor_name}
+                {bill.patient_age}
+                {bill.patient_gender} · {formatDate(bill.date)} ·{" "}
+                {bill.doctor_name}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -345,7 +757,10 @@ function BillingDetail({ bill, onClose }: { bill: BillingRecord; onClose: () => 
               <Button variant="outline" size="sm" className="gap-1 text-xs">
                 <Download className="w-3 h-3" /> PDF
               </Button>
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--surface)] text-[var(--foreground-subtle)]">
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-lg hover:bg-[var(--surface)] text-[var(--foreground-subtle)]"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -358,35 +773,57 @@ function BillingDetail({ bill, onClose }: { bill: BillingRecord; onClose: () => 
             <div className="flex items-center gap-2">
               <Receipt className="w-5 h-5 text-amber-400" />
               <div>
-                <p className="text-[10px] text-amber-400/70 uppercase tracking-wider">Invoice Total</p>
-                <p className="text-[10px] text-[var(--foreground-subtle)]">{bill.duration_minutes} min · {bill.line_items.length} items</p>
+                <p className="text-[10px] text-amber-400/70 uppercase tracking-wider">
+                  Invoice Total
+                </p>
+                <p className="text-[10px] text-[var(--foreground-subtle)]">
+                  {bill.duration_minutes} min · {bill.line_items.length} items
+                </p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xl font-bold text-amber-400">{formatINR(bill.total)}</p>
-              <p className="text-[9px] text-[var(--foreground-subtle)]">incl. 5% GST</p>
+              <p className="text-xl font-bold text-amber-400">
+                {formatINR(bill.total)}
+              </p>
+              <p className="text-[9px] text-[var(--foreground-subtle)]">
+                incl. 5% GST
+              </p>
             </div>
           </div>
 
           {/* Consultation info */}
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)]">
-              <p className="text-[10px] text-[var(--foreground-subtle)]">Type</p>
-              <p className="text-xs font-medium text-[var(--foreground)] capitalize">{bill.consultation_type}</p>
+              <p className="text-[10px] text-[var(--foreground-subtle)]">
+                Type
+              </p>
+              <p className="text-xs font-medium text-[var(--foreground)] capitalize">
+                {bill.consultation_type}
+              </p>
             </div>
             <div className="p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)]">
-              <p className="text-[10px] text-[var(--foreground-subtle)]">Duration</p>
-              <p className="text-xs font-medium text-[var(--foreground)]">{bill.duration_minutes} min</p>
+              <p className="text-[10px] text-[var(--foreground-subtle)]">
+                Duration
+              </p>
+              <p className="text-xs font-medium text-[var(--foreground)]">
+                {bill.duration_minutes} min
+              </p>
             </div>
             <div className="p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)]">
-              <p className="text-[10px] text-[var(--foreground-subtle)]">Payment</p>
-              <p className="text-xs font-medium text-[var(--foreground)]">{bill.payment_method || "N/A"}</p>
+              <p className="text-[10px] text-[var(--foreground-subtle)]">
+                Payment
+              </p>
+              <p className="text-xs font-medium text-[var(--foreground)]">
+                {bill.payment_method || "N/A"}
+              </p>
             </div>
           </div>
 
           {/* Line items by category */}
           <div className="space-y-4">
-            <h3 className="text-xs font-semibold text-[var(--foreground-subtle)] uppercase tracking-wider">Itemized Breakdown</h3>
+            <h3 className="text-xs font-semibold text-[var(--foreground-subtle)] uppercase tracking-wider">
+              Itemized Breakdown
+            </h3>
             {Object.entries(grouped).map(([category, items]) => {
               const catCfg = CATEGORY_CONFIG[category];
               const CatIcon = catCfg?.icon || Stethoscope;
@@ -394,23 +831,36 @@ function BillingDetail({ bill, onClose }: { bill: BillingRecord; onClose: () => 
               return (
                 <div key={category}>
                   <div className="flex items-center justify-between mb-2">
-                    <p className={cn(
-                      "text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1",
-                      catCfg?.color || "text-[var(--foreground-muted)]"
-                    )}>
+                    <p
+                      className={cn(
+                        "text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1",
+                        catCfg?.color || "text-[var(--foreground-muted)]",
+                      )}
+                    >
                       <CatIcon className="w-3 h-3" /> {category}
                     </p>
-                    <span className="text-[10px] font-medium text-[var(--foreground-muted)]">{formatINR(catTotal)}</span>
+                    <span className="text-[10px] font-medium text-[var(--foreground-muted)]">
+                      {formatINR(catTotal)}
+                    </span>
                   </div>
                   <div className="space-y-1">
                     {items.map((item, i) => (
-                      <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)]">
-                        <span className="text-xs text-[var(--foreground-muted)] truncate flex-1">{item.description}</span>
+                      <div
+                        key={i}
+                        className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)]"
+                      >
+                        <span className="text-xs text-[var(--foreground-muted)] truncate flex-1">
+                          {item.description}
+                        </span>
                         <div className="flex items-center gap-3 shrink-0 ml-2">
                           {item.quantity > 1 && (
-                            <span className="text-[9px] text-[var(--foreground-subtle)]">×{item.quantity}</span>
+                            <span className="text-[9px] text-[var(--foreground-subtle)]">
+                              ×{item.quantity}
+                            </span>
                           )}
-                          <span className="text-xs font-medium text-[var(--foreground)] min-w-[60px] text-right">{formatINR(item.total)}</span>
+                          <span className="text-xs font-medium text-[var(--foreground)] min-w-[60px] text-right">
+                            {formatINR(item.total)}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -450,20 +900,32 @@ function BillingDetail({ bill, onClose }: { bill: BillingRecord; onClose: () => 
               </p>
               <div className="flex justify-between text-xs">
                 <span className="text-[var(--foreground-muted)]">Provider</span>
-                <span className="text-[var(--foreground)] font-medium">{bill.insurance}</span>
+                <span className="text-[var(--foreground)] font-medium">
+                  {bill.insurance}
+                </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-[var(--foreground-muted)]">Covered Amount</span>
-                <span className="text-blue-400 font-medium">{formatINR(bill.insurance_covered)}</span>
+                <span className="text-[var(--foreground-muted)]">
+                  Covered Amount
+                </span>
+                <span className="text-blue-400 font-medium">
+                  {formatINR(bill.insurance_covered)}
+                </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-[var(--foreground-muted)]">Patient Payable</span>
-                <span className="text-[var(--foreground)] font-bold">{formatINR(bill.patient_payable)}</span>
+                <span className="text-[var(--foreground-muted)]">
+                  Patient Payable
+                </span>
+                <span className="text-[var(--foreground)] font-bold">
+                  {formatINR(bill.patient_payable)}
+                </span>
               </div>
               {bill.patient_payable === 0 && (
                 <div className="flex items-center gap-1.5 mt-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
-                  <span className="text-xs text-green-400 font-medium">Fully covered by insurance</span>
+                  <span className="text-xs text-green-400 font-medium">
+                    Fully covered by insurance
+                  </span>
                 </div>
               )}
             </div>
@@ -473,7 +935,8 @@ function BillingDetail({ bill, onClose }: { bill: BillingRecord; onClose: () => 
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/8 border border-green-500/15">
             <IndianRupee className="w-3.5 h-3.5 text-green-400 shrink-0" />
             <p className="text-[10px] text-green-300">
-              Eligible for Ayushman Bharat / CGHS / ECHS reimbursement. ABHA-linked billing supported.
+              Eligible for Ayushman Bharat / CGHS / ECHS reimbursement.
+              ABHA-linked billing supported.
             </p>
           </div>
         </div>
@@ -484,7 +947,15 @@ function BillingDetail({ bill, onClose }: { bill: BillingRecord; onClose: () => 
 
 // ─── Billing Row ──────────────────────────────────────────────────────────────
 
-function BillingRow({ bill, index, onClick }: { bill: BillingRecord; index: number; onClick: () => void }) {
+function BillingRow({
+  bill,
+  index,
+  onClick,
+}: {
+  bill: BillingRecord;
+  index: number;
+  onClick: () => void;
+}) {
   const statusCfg = PAYMENT_STATUS_CONFIG[bill.payment_status];
   const StatusIcon = statusCfg.icon;
 
@@ -504,14 +975,23 @@ function BillingRow({ bill, index, onClick }: { bill: BillingRecord; index: numb
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-[var(--foreground)] truncate">{bill.patient_name}</p>
-          <span className="text-[10px] text-[var(--foreground-subtle)]">{bill.patient_age}{bill.patient_gender}</span>
-          <Badge variant={statusCfg.variant} className="text-[9px] py-0 px-1.5 h-3.5 gap-0.5">
+          <p className="text-sm font-medium text-[var(--foreground)] truncate">
+            {bill.patient_name}
+          </p>
+          <span className="text-[10px] text-[var(--foreground-subtle)]">
+            {bill.patient_age}
+            {bill.patient_gender}
+          </span>
+          <Badge
+            variant={statusCfg.variant}
+            className="text-[9px] py-0 px-1.5 h-3.5 gap-0.5"
+          >
             <StatusIcon className="w-2.5 h-2.5" /> {statusCfg.label}
           </Badge>
         </div>
         <p className="text-xs text-[var(--foreground-muted)] mt-0.5">
-          {bill.receipt_no} · {bill.line_items.length} items · {bill.duration_minutes} min
+          {bill.receipt_no} · {bill.line_items.length} items ·{" "}
+          {bill.duration_minutes} min
         </p>
       </div>
 
@@ -523,20 +1003,28 @@ function BillingRow({ bill, index, onClick }: { bill: BillingRecord; index: numb
       {/* Insurance */}
       <div className="text-center shrink-0 hidden md:block">
         <p className="text-[10px] text-[var(--foreground-subtle)]">Insurance</p>
-        <p className="text-[10px] font-medium text-blue-400 truncate max-w-[100px]">{bill.insurance}</p>
+        <p className="text-[10px] font-medium text-blue-400 truncate max-w-[100px]">
+          {bill.insurance}
+        </p>
       </div>
 
       {/* Amount */}
       <div className="text-right shrink-0">
-        <p className="text-sm font-bold text-amber-400">{formatINR(bill.total)}</p>
+        <p className="text-sm font-bold text-amber-400">
+          {formatINR(bill.total)}
+        </p>
         {bill.patient_payable > 0 && bill.patient_payable < bill.total && (
-          <p className="text-[10px] text-[var(--foreground-subtle)]">Patient: {formatINR(bill.patient_payable)}</p>
+          <p className="text-[10px] text-[var(--foreground-subtle)]">
+            Patient: {formatINR(bill.patient_payable)}
+          </p>
         )}
       </div>
 
       {/* Date */}
       <div className="text-right shrink-0">
-        <p className="text-xs text-[var(--foreground-muted)]">{formatDate(bill.date)}</p>
+        <p className="text-xs text-[var(--foreground-muted)]">
+          {formatDate(bill.date)}
+        </p>
       </div>
 
       <ChevronRight className="w-4 h-4 text-[var(--foreground-subtle)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -547,12 +1035,12 @@ function BillingRow({ bill, index, onClick }: { bill: BillingRecord; index: numb
 // ─── Revenue Breakdown Chart (Simple) ─────────────────────────────────────────
 
 function RevenueBreakdown({ bills }: { bills: BillingRecord[] }) {
-  const allItems = bills.flatMap(b => b.line_items);
+  const allItems = bills.flatMap((b) => b.line_items);
   const byCategory = Object.entries(
     allItems.reduce<Record<string, number>>((acc, item) => {
       acc[item.category] = (acc[item.category] || 0) + item.total;
       return acc;
-    }, {})
+    }, {}),
   ).sort((a, b) => b[1] - a[1]);
 
   const total = byCategory.reduce((s, [, v]) => s + v, 0);
@@ -573,18 +1061,40 @@ function RevenueBreakdown({ bills }: { bills: BillingRecord[] }) {
           return (
             <div key={cat} className="space-y-1">
               <div className="flex items-center justify-between">
-                <span className={cn("text-xs flex items-center gap-1 capitalize", catCfg?.color || "text-[var(--foreground-muted)]")}>
+                <span
+                  className={cn(
+                    "text-xs flex items-center gap-1 capitalize",
+                    catCfg?.color || "text-[var(--foreground-muted)]",
+                  )}
+                >
                   <CatIcon className="w-3 h-3" /> {cat}
                 </span>
-                <span className="text-xs font-medium text-[var(--foreground)]">{formatINR(amount)} ({pct}%)</span>
+                <span className="text-xs font-medium text-[var(--foreground)]">
+                  {formatINR(amount)} ({pct}%)
+                </span>
               </div>
               <div className="h-1.5 bg-[var(--surface)] rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${pct}%` }}
                   transition={{ duration: 0.5, delay: 0.2 }}
-                  className={cn("h-full rounded-full", catCfg?.bg || "bg-blue-500/30")}
-                  style={{ backgroundColor: catCfg?.color.replace("text-", "").includes("blue") ? "rgb(96,165,250)" : catCfg?.color.includes("purple") ? "rgb(192,132,252)" : catCfg?.color.includes("cyan") ? "rgb(34,211,238)" : catCfg?.color.includes("green") ? "rgb(74,222,128)" : "rgb(251,191,36)" }}
+                  className={cn(
+                    "h-full rounded-full",
+                    catCfg?.bg || "bg-blue-500/30",
+                  )}
+                  style={{
+                    backgroundColor: catCfg?.color
+                      .replace("text-", "")
+                      .includes("blue")
+                      ? "rgb(96,165,250)"
+                      : catCfg?.color.includes("purple")
+                        ? "rgb(192,132,252)"
+                        : catCfg?.color.includes("cyan")
+                          ? "rgb(34,211,238)"
+                          : catCfg?.color.includes("green")
+                            ? "rgb(74,222,128)"
+                            : "rgb(251,191,36)",
+                  }}
                 />
               </div>
             </div>
@@ -603,21 +1113,139 @@ interface BillingClientProps {
 
 export function BillingClient({ user }: BillingClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | BillingRecord["payment_status"]>("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | BillingRecord["payment_status"]
+  >("all");
   const [selectedBill, setSelectedBill] = useState<BillingRecord | null>(null);
+  const [bills, setBills] = useState<BillingRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch billing records from Supabase
+  useEffect(() => {
+    async function fetchBillingRecords() {
+      try {
+        setLoading(true);
+        const supabase = getSupabaseBrowserClient();
+
+        const { data, error } = await supabase
+          .from("billing_drafts")
+          .select(
+            `
+            *,
+            consultation:consultations!inner(
+              id,
+              patient_id,
+              doctor_id,
+              started_at,
+              ended_at,
+              consultation_type,
+              patient:patients!inner(
+                id,
+                name,
+                dob,
+                gender
+              ),
+              doctor:users!consultations_doctor_id_fkey(
+                name
+              )
+            )
+          `,
+          )
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching billing records:", error);
+          setBills([]);
+          return;
+        }
+
+        // Transform the data to match our BillingRecord type
+        const transformedBills: BillingRecord[] = (data || []).map(
+          (record: any) => {
+            const dob = new Date(record.consultation.patient.dob);
+            const age = new Date().getFullYear() - dob.getFullYear();
+
+            // Calculate duration in minutes
+            const startTime = new Date(record.consultation.started_at);
+            const endTime = record.consultation.ended_at
+              ? new Date(record.consultation.ended_at)
+              : new Date();
+            const durationMinutes = Math.round(
+              (endTime.getTime() - startTime.getTime()) / (1000 * 60),
+            );
+
+            // Generate receipt number if not present
+            const receiptNo =
+              record.receipt_no ||
+              `NX-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9999)).padStart(4, "0")}`;
+
+            return {
+              id: record.id,
+              consultation_id: record.consultation_id,
+              patient_name: record.consultation.patient.name,
+              patient_id: record.consultation.patient.id,
+              patient_age: age,
+              patient_gender: record.consultation.patient.gender,
+              doctor_name: record.consultation.doctor?.name || "Unknown Doctor",
+              date: record.consultation.started_at.split("T")[0],
+              consultation_type: record.consultation.consultation_type,
+              duration_minutes: durationMinutes,
+              line_items: record.line_items || [],
+              subtotal: record.subtotal || 0,
+              discount: record.discount || 0,
+              tax: record.tax || 0,
+              total: record.total || 0,
+              insurance: record.insurance || "None",
+              insurance_eligible: record.insurance_eligible || false,
+              insurance_covered: record.insurance_covered || 0,
+              patient_payable: record.patient_payable || record.total || 0,
+              payment_status: record.payment_status || "pending",
+              payment_method: record.payment_method,
+              receipt_no: receiptNo,
+            };
+          },
+        );
+
+        setBills(transformedBills);
+      } catch (err) {
+        console.error("Error in fetchBillingRecords:", err);
+        setBills([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchBillingRecords();
+  }, []);
 
   const filteredBills = useMemo(() => {
-    return MOCK_BILLING.filter((b) => {
-      if (statusFilter !== "all" && b.payment_status !== statusFilter) return false;
-      const matchesSearch =
-        b.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.receipt_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.insurance.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [searchQuery, statusFilter]);
+    return bills
+      .filter((b) => {
+        if (statusFilter !== "all" && b.payment_status !== statusFilter)
+          return false;
+        const matchesSearch =
+          b.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          b.receipt_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          b.insurance.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesSearch;
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [bills, searchQuery, statusFilter]);
 
-  const stats = getStats(MOCK_BILLING);
+  const stats = getStats(bills);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+          <p className="text-sm text-[var(--foreground-muted)]">
+            Loading billing records...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -629,7 +1257,7 @@ export function BillingClient({ user }: BillingClientProps) {
             Billing & Invoices
           </h1>
           <p className="text-sm text-[var(--foreground-muted)] mt-0.5">
-            {MOCK_BILLING.length} invoices · Auto-generated from consultations
+            {bills.length} invoices · Auto-generated from consultations
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -649,15 +1277,29 @@ export function BillingClient({ user }: BillingClientProps) {
         {stats.map((stat, i) => {
           const Icon = stat.icon;
           return (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+            >
               <Card className="border-[var(--border)]">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-xs text-[var(--foreground-subtle)]">{stat.label}</p>
-                      <p className="text-lg font-bold text-[var(--foreground)] mt-0.5">{stat.value}</p>
+                      <p className="text-xs text-[var(--foreground-subtle)]">
+                        {stat.label}
+                      </p>
+                      <p className="text-lg font-bold text-[var(--foreground)] mt-0.5">
+                        {stat.value}
+                      </p>
                     </div>
-                    <div className={cn("flex items-center justify-center w-9 h-9 rounded-lg", stat.bg)}>
+                    <div
+                      className={cn(
+                        "flex items-center justify-center w-9 h-9 rounded-lg",
+                        stat.bg,
+                      )}
+                    >
                       <Icon className={cn("w-4 h-4", stat.color)} />
                     </div>
                   </div>
@@ -683,26 +1325,40 @@ export function BillingClient({ user }: BillingClientProps) {
               />
             </div>
             <div className="flex items-center gap-1.5">
-              {(["all", "paid", "pending", "insurance-pending"] as const).map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
-                    statusFilter === status
-                      ? "bg-blue-500/15 border-blue-500/30 text-blue-400"
-                      : "bg-[var(--surface)] border-[var(--border)] text-[var(--foreground-muted)] hover:text-[var(--foreground)]"
-                  )}
-                >
-                  {status === "all" ? "All" : status === "insurance-pending" ? "Insurance" : status.charAt(0).toUpperCase() + status.slice(1)}
-                </button>
-              ))}
+              {(["all", "paid", "pending", "insurance-pending"] as const).map(
+                (status) => (
+                  <button
+                    key={status}
+                    onClick={() => setStatusFilter(status)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+                      statusFilter === status
+                        ? "bg-blue-500/15 border-blue-500/30 text-blue-400"
+                        : "bg-[var(--surface)] border-[var(--border)] text-[var(--foreground-muted)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    {status === "all"
+                      ? "All"
+                      : status === "insurance-pending"
+                        ? "Insurance"
+                        : status.charAt(0).toUpperCase() + status.slice(1)}
+                  </button>
+                ),
+              )}
             </div>
           </div>
 
           {/* Billing List */}
           <div className="space-y-2">
-            {filteredBills.length === 0 ? (
+            {bills.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-[var(--foreground-subtle)]">
+                <CreditCard className="w-10 h-10 mb-3 opacity-30" />
+                <p className="text-sm">No billing records found</p>
+                <p className="text-xs mt-1">
+                  Start a consultation to create billing records
+                </p>
+              </div>
+            ) : filteredBills.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-[var(--foreground-subtle)]">
                 <CreditCard className="w-10 h-10 mb-3 opacity-30" />
                 <p className="text-sm">No invoices match your search</p>
@@ -723,7 +1379,7 @@ export function BillingClient({ user }: BillingClientProps) {
         {/* Right sidebar */}
         <div className="space-y-4">
           {/* Revenue breakdown */}
-          <RevenueBreakdown bills={MOCK_BILLING} />
+          <RevenueBreakdown bills={bills} />
 
           {/* Recent activity */}
           <Card className="border-[var(--border)]">
@@ -735,17 +1391,58 @@ export function BillingClient({ user }: BillingClientProps) {
             </CardHeader>
             <CardContent className="space-y-2">
               {[
-                { action: "Invoice generated", patient: "V. Malhotra", amount: "₹11,104", time: "10:35 AM", color: "text-amber-400" },
-                { action: "Payment received", patient: "P. Sharma", amount: "₹360", time: "09:45 AM", color: "text-green-400" },
-                { action: "Insurance claim filed", patient: "R. Patel", amount: "₹3,539", time: "09:20 AM", color: "text-blue-400" },
-                { action: "Invoice generated", patient: "S. Kumar", amount: "₹2,642", time: "Yesterday", color: "text-amber-400" },
-                { action: "Payment received", patient: "M. Singh", amount: "₹186", time: "Feb 15", color: "text-green-400" },
+                {
+                  action: "Invoice generated",
+                  patient: "V. Malhotra",
+                  amount: "₹11,104",
+                  time: "10:35 AM",
+                  color: "text-amber-400",
+                },
+                {
+                  action: "Payment received",
+                  patient: "P. Sharma",
+                  amount: "₹360",
+                  time: "09:45 AM",
+                  color: "text-green-400",
+                },
+                {
+                  action: "Insurance claim filed",
+                  patient: "R. Patel",
+                  amount: "₹3,539",
+                  time: "09:20 AM",
+                  color: "text-blue-400",
+                },
+                {
+                  action: "Invoice generated",
+                  patient: "S. Kumar",
+                  amount: "₹2,642",
+                  time: "Yesterday",
+                  color: "text-amber-400",
+                },
+                {
+                  action: "Payment received",
+                  patient: "M. Singh",
+                  amount: "₹186",
+                  time: "Feb 15",
+                  color: "text-green-400",
+                },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs">
-                  <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", item.color.replace("text-", "bg-"))} />
-                  <span className="text-[var(--foreground-muted)] flex-1 truncate">{item.action} — {item.patient}</span>
-                  <span className={cn("font-medium shrink-0", item.color)}>{item.amount}</span>
-                  <span className="text-[var(--foreground-subtle)] shrink-0 text-[10px]">{item.time}</span>
+                  <div
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full shrink-0",
+                      item.color.replace("text-", "bg-"),
+                    )}
+                  />
+                  <span className="text-[var(--foreground-muted)] flex-1 truncate">
+                    {item.action} — {item.patient}
+                  </span>
+                  <span className={cn("font-medium shrink-0", item.color)}>
+                    {item.amount}
+                  </span>
+                  <span className="text-[var(--foreground-subtle)] shrink-0 text-[10px]">
+                    {item.time}
+                  </span>
                 </div>
               ))}
             </CardContent>
@@ -761,16 +1458,26 @@ export function BillingClient({ user }: BillingClientProps) {
             </CardHeader>
             <CardContent className="space-y-2">
               {Object.entries(
-                MOCK_BILLING.reduce<Record<string, number>>((acc, b) => {
-                  acc[b.insurance] = (acc[b.insurance] || 0) + b.insurance_covered;
+                bills.reduce<Record<string, number>>((acc, b) => {
+                  acc[b.insurance] =
+                    (acc[b.insurance] || 0) + b.insurance_covered;
                   return acc;
-                }, {})
-              ).sort((a, b) => b[1] - a[1]).map(([insurer, amount]) => (
-                <div key={insurer} className="flex items-center justify-between text-xs">
-                  <span className="text-[var(--foreground-muted)] truncate flex-1">{insurer}</span>
-                  <span className="text-purple-400 font-medium shrink-0">{formatINR(amount)}</span>
-                </div>
-              ))}
+                }, {}),
+              )
+                .sort((a, b) => b[1] - a[1])
+                .map(([insurer, amount]) => (
+                  <div
+                    key={insurer}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <span className="text-[var(--foreground-muted)] truncate flex-1">
+                      {insurer}
+                    </span>
+                    <span className="text-purple-400 font-medium shrink-0">
+                      {formatINR(amount)}
+                    </span>
+                  </div>
+                ))}
             </CardContent>
           </Card>
         </div>
@@ -779,7 +1486,10 @@ export function BillingClient({ user }: BillingClientProps) {
       {/* Billing Detail Drawer */}
       <AnimatePresence>
         {selectedBill && (
-          <BillingDetail bill={selectedBill} onClose={() => setSelectedBill(null)} />
+          <BillingDetail
+            bill={selectedBill}
+            onClose={() => setSelectedBill(null)}
+          />
         )}
       </AnimatePresence>
     </div>

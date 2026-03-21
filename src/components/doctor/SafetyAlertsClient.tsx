@@ -1,32 +1,64 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Shield, ShieldAlert, AlertTriangle, CheckCircle2, X, ChevronRight,
-  Search, Filter, Clock, Pill, Activity, User, FileText,
-  XCircle, ChevronDown, ChevronUp, Eye, Bell, BellOff
+  Shield,
+  ShieldAlert,
+  AlertTriangle,
+  CheckCircle2,
+  X,
+  ChevronRight,
+  Search,
+  Filter,
+  Clock,
+  Pill,
+  Activity,
+  User,
+  FileText,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Bell,
+  BellOff,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { SafetyAlert, AlertSeverity, AlertType } from "@/lib/types";
 
-// ─── Comprehensive Mock Safety Alerts ─────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const MOCK_ALERTS: (SafetyAlert & { patient_name: string; patient_id: string })[] = [
+interface AlertWithPatient extends SafetyAlert {
+  patient_name: string;
+  patient_id: string;
+}
+
+const MOCK_ALERTS_BACKUP: (SafetyAlert & {
+  patient_name: string;
+  patient_id: string;
+})[] = [
   {
     id: "sa-001",
     consultation_id: "c-002",
     alert_type: "drug_interaction",
     severity: "critical",
     title: "Warfarin + Aspirin — Major Bleeding Risk",
-    description: "Concurrent use of Warfarin (anticoagulant) with Aspirin (antiplatelet) significantly increases the risk of gastrointestinal and intracranial hemorrhage. INR may become supratherapeutic. The combination multiplies bleeding risk by 2-3x compared to either agent alone.",
+    description:
+      "Concurrent use of Warfarin (anticoagulant) with Aspirin (antiplatelet) significantly increases the risk of gastrointestinal and intracranial hemorrhage. INR may become supratherapeutic. The combination multiplies bleeding risk by 2-3x compared to either agent alone.",
     drug_a: "Warfarin",
     drug_b: "Aspirin 75mg",
-    mechanism: "Aspirin inhibits platelet aggregation via COX-1 blockade, while Warfarin inhibits Vitamin K-dependent clotting factors. Dual blockade of both primary and secondary hemostasis creates synergistic bleeding risk.",
-    alternatives: ["Clopidogrel 75mg (if antiplatelet needed)", "Reduce Aspirin to 50mg with PPI cover", "Use direct oral anticoagulant (Apixaban) instead of Warfarin"],
+    mechanism:
+      "Aspirin inhibits platelet aggregation via COX-1 blockade, while Warfarin inhibits Vitamin K-dependent clotting factors. Dual blockade of both primary and secondary hemostasis creates synergistic bleeding risk.",
+    alternatives: [
+      "Clopidogrel 75mg (if antiplatelet needed)",
+      "Reduce Aspirin to 50mg with PPI cover",
+      "Use direct oral anticoagulant (Apixaban) instead of Warfarin",
+    ],
     acknowledged: false,
     created_at: "2026-02-26T09:15:00Z",
     patient_name: "Ramesh Patel",
@@ -38,11 +70,17 @@ const MOCK_ALERTS: (SafetyAlert & { patient_name: string; patient_id: string })[
     alert_type: "allergy",
     severity: "high",
     title: "Penicillin Allergy — Amoxicillin Prescribed",
-    description: "Patient has a documented Penicillin allergy (anaphylaxis history). Amoxicillin is a penicillin-class antibiotic and is ABSOLUTELY CONTRAINDICATED. Cross-reactivity rate is nearly 100%.",
+    description:
+      "Patient has a documented Penicillin allergy (anaphylaxis history). Amoxicillin is a penicillin-class antibiotic and is ABSOLUTELY CONTRAINDICATED. Cross-reactivity rate is nearly 100%.",
     drug_a: "Amoxicillin",
     drug_b: "Penicillin (allergy)",
-    mechanism: "Amoxicillin shares the beta-lactam ring structure with penicillin. Patients with true IgE-mediated penicillin allergy have near-certain cross-reactivity with aminopenicillins.",
-    alternatives: ["Azithromycin 500mg (macrolide — no cross-reactivity)", "Doxycycline 100mg (tetracycline class)", "Levofloxacin 500mg (fluoroquinolone — use with caution)"],
+    mechanism:
+      "Amoxicillin shares the beta-lactam ring structure with penicillin. Patients with true IgE-mediated penicillin allergy have near-certain cross-reactivity with aminopenicillins.",
+    alternatives: [
+      "Azithromycin 500mg (macrolide — no cross-reactivity)",
+      "Doxycycline 100mg (tetracycline class)",
+      "Levofloxacin 500mg (fluoroquinolone — use with caution)",
+    ],
     acknowledged: false,
     created_at: "2026-02-26T09:22:00Z",
     patient_name: "Priya Sharma",
@@ -54,11 +92,18 @@ const MOCK_ALERTS: (SafetyAlert & { patient_name: string; patient_id: string })[
     alert_type: "contraindication",
     severity: "medium",
     title: "Metformin + Contrast Dye — Renal Risk",
-    description: "Patient is scheduled for CT with IV contrast. Metformin should be held 48 hours before and after contrast administration in patients with eGFR < 60 to prevent contrast-induced nephropathy and lactic acidosis.",
+    description:
+      "Patient is scheduled for CT with IV contrast. Metformin should be held 48 hours before and after contrast administration in patients with eGFR < 60 to prevent contrast-induced nephropathy and lactic acidosis.",
     drug_a: "Metformin 1000mg",
     drug_b: "IV Contrast (Iodinated)",
-    mechanism: "Iodinated contrast can cause acute kidney injury. In the presence of renal impairment, Metformin accumulates due to reduced renal clearance, leading to life-threatening lactic acidosis.",
-    alternatives: ["Hold Metformin 48h pre/post contrast", "Switch to Glimepiride temporarily", "Use non-contrast MRI if feasible", "Ensure adequate pre-hydration with NS"],
+    mechanism:
+      "Iodinated contrast can cause acute kidney injury. In the presence of renal impairment, Metformin accumulates due to reduced renal clearance, leading to life-threatening lactic acidosis.",
+    alternatives: [
+      "Hold Metformin 48h pre/post contrast",
+      "Switch to Glimepiride temporarily",
+      "Use non-contrast MRI if feasible",
+      "Ensure adequate pre-hydration with NS",
+    ],
     acknowledged: false,
     created_at: "2026-02-26T10:05:00Z",
     patient_name: "Suresh Kumar",
@@ -70,11 +115,18 @@ const MOCK_ALERTS: (SafetyAlert & { patient_name: string; patient_id: string })[
     alert_type: "drug_interaction",
     severity: "high",
     title: "Digoxin + Azithromycin — Digoxin Toxicity Risk",
-    description: "Macrolide antibiotics like Azithromycin can increase Digoxin levels by reducing gut flora that normally inactivate Digoxin, and by inhibiting P-glycoprotein transport. Risk of fatal arrhythmia.",
+    description:
+      "Macrolide antibiotics like Azithromycin can increase Digoxin levels by reducing gut flora that normally inactivate Digoxin, and by inhibiting P-glycoprotein transport. Risk of fatal arrhythmia.",
     drug_a: "Digoxin 0.25mg",
     drug_b: "Azithromycin 500mg",
-    mechanism: "Azithromycin inhibits P-glycoprotein (intestinal efflux pump), increasing Digoxin absorption by ~20-40%. Also reduces colonic bacteria (Eubacterium lentum) that inactivate Digoxin. Elderly patients have reduced renal clearance, amplifying the effect.",
-    alternatives: ["Use Amoxicillin/Clavulanate instead (if no allergy)", "Reduce Digoxin to 0.125mg during Azithromycin course", "Monitor Digoxin levels at 48h and 96h", "Use Doxycycline as alternative antibiotic"],
+    mechanism:
+      "Azithromycin inhibits P-glycoprotein (intestinal efflux pump), increasing Digoxin absorption by ~20-40%. Also reduces colonic bacteria (Eubacterium lentum) that inactivate Digoxin. Elderly patients have reduced renal clearance, amplifying the effect.",
+    alternatives: [
+      "Use Amoxicillin/Clavulanate instead (if no allergy)",
+      "Reduce Digoxin to 0.125mg during Azithromycin course",
+      "Monitor Digoxin levels at 48h and 96h",
+      "Use Doxycycline as alternative antibiotic",
+    ],
     acknowledged: false,
     created_at: "2026-02-26T10:30:00Z",
     patient_name: "Vikram Malhotra",
@@ -86,11 +138,18 @@ const MOCK_ALERTS: (SafetyAlert & { patient_name: string; patient_id: string })[
     alert_type: "dosage",
     severity: "medium",
     title: "Prednisolone 40mg in Uncontrolled Diabetic",
-    description: "High-dose systemic corticosteroids will significantly worsen glycemic control. Blood sugars may rise 150-300 mg/dL over baseline. HbA1c already 9.2% — requires proactive insulin adjustment.",
+    description:
+      "High-dose systemic corticosteroids will significantly worsen glycemic control. Blood sugars may rise 150-300 mg/dL over baseline. HbA1c already 9.2% — requires proactive insulin adjustment.",
     drug_a: "Prednisolone 40mg",
     drug_b: "Insulin Glargine 18U",
-    mechanism: "Corticosteroids cause hepatic gluconeogenesis, peripheral insulin resistance, and impaired pancreatic beta-cell function. Effect is dose-dependent and most pronounced 4-8 hours post-dose.",
-    alternatives: ["Increase Insulin Glargine to 24-28 units during steroid course", "Add short-acting insulin (Actrapid) for postprandial spikes", "Monitor CBG 4 times daily", "Consider nebulized Budesonide instead of systemic steroid if mild exacerbation"],
+    mechanism:
+      "Corticosteroids cause hepatic gluconeogenesis, peripheral insulin resistance, and impaired pancreatic beta-cell function. Effect is dose-dependent and most pronounced 4-8 hours post-dose.",
+    alternatives: [
+      "Increase Insulin Glargine to 24-28 units during steroid course",
+      "Add short-acting insulin (Actrapid) for postprandial spikes",
+      "Monitor CBG 4 times daily",
+      "Consider nebulized Budesonide instead of systemic steroid if mild exacerbation",
+    ],
     acknowledged: false,
     created_at: "2026-02-26T10:35:00Z",
     patient_name: "Vikram Malhotra",
@@ -102,14 +161,21 @@ const MOCK_ALERTS: (SafetyAlert & { patient_name: string; patient_id: string })[
     alert_type: "drug_interaction",
     severity: "low",
     title: "Losartan + Chlorthalidone — Monitor Potassium",
-    description: "ARBs (Losartan) tend to raise potassium, while thiazide diuretics (Chlorthalidone) lower it. Usually the effects balance out, but in CKD patients, hyperkalemia risk persists. Monitoring recommended.",
+    description:
+      "ARBs (Losartan) tend to raise potassium, while thiazide diuretics (Chlorthalidone) lower it. Usually the effects balance out, but in CKD patients, hyperkalemia risk persists. Monitoring recommended.",
     drug_a: "Losartan 50mg",
     drug_b: "Chlorthalidone 12.5mg",
-    mechanism: "Losartan blocks aldosterone secretion (RAAS), reducing potassium excretion. Chlorthalidone increases potassium excretion via distal tubule. In CKD, reduced GFR impairs potassium excretion regardless of drug effects.",
-    alternatives: ["Check serum potassium at 1 week and monthly", "Avoid potassium-rich diet supplements", "Consider switching to Amlodipine + Chlorthalidone if K+ > 5.5"],
+    mechanism:
+      "Losartan blocks aldosterone secretion (RAAS), reducing potassium excretion. Chlorthalidone increases potassium excretion via distal tubule. In CKD, reduced GFR impairs potassium excretion regardless of drug effects.",
+    alternatives: [
+      "Check serum potassium at 1 week and monthly",
+      "Avoid potassium-rich diet supplements",
+      "Consider switching to Amlodipine + Chlorthalidone if K+ > 5.5",
+    ],
     acknowledged: true,
     acknowledged_by: "Dr. Arun Mehta",
-    override_reason: "Acknowledged — will monitor K+ levels weekly. Patient counseled on potassium-rich foods.",
+    override_reason:
+      "Acknowledged — will monitor K+ levels weekly. Patient counseled on potassium-rich foods.",
     created_at: "2026-02-25T14:20:00Z",
     patient_name: "Suresh Kumar",
     patient_id: "p-004",
@@ -120,30 +186,71 @@ const MOCK_ALERTS: (SafetyAlert & { patient_name: string; patient_id: string })[
     alert_type: "dosage",
     severity: "low",
     title: "Furosemide — Electrolyte Monitoring Reminder",
-    description: "Furosemide can cause hypokalemia, hyponatremia, and hypomagnesemia. Basic metabolic panel should be checked within 3-7 days of initiation, especially in elderly patients on digoxin.",
+    description:
+      "Furosemide can cause hypokalemia, hyponatremia, and hypomagnesemia. Basic metabolic panel should be checked within 3-7 days of initiation, especially in elderly patients on digoxin.",
     drug_a: "Furosemide 40mg",
-    alternatives: ["Order BMP at 72 hours", "Consider prophylactic KCl supplementation", "Advise potassium-rich foods (bananas, coconut water)"],
+    alternatives: [
+      "Order BMP at 72 hours",
+      "Consider prophylactic KCl supplementation",
+      "Advise potassium-rich foods (bananas, coconut water)",
+    ],
     acknowledged: true,
     acknowledged_by: "Dr. Arun Mehta",
-    override_reason: "BMP ordered for day 3. KCl 600mg BD started prophylactically.",
+    override_reason:
+      "BMP ordered for day 3. KCl 600mg BD started prophylactically.",
     created_at: "2026-02-24T11:15:00Z",
     patient_name: "Ramesh Patel",
     patient_id: "p-002",
   },
 ];
 
-type AlertWithPatient = typeof MOCK_ALERTS[0];
+type AlertWithPatientType = AlertWithPatient;
 
 // ─── Severity config ──────────────────────────────────────────────────────────
 
-const SEVERITY_CONFIG: Record<AlertSeverity, {
-  label: string; variant: "critical" | "destructive" | "warning" | "default";
-  color: string; bg: string; borderColor: string; icon: typeof ShieldAlert;
-}> = {
-  critical: { label: "CRITICAL", variant: "critical", color: "text-red-400", bg: "bg-red-500/10", borderColor: "border-red-500/30", icon: ShieldAlert },
-  high: { label: "HIGH", variant: "destructive", color: "text-orange-400", bg: "bg-orange-500/10", borderColor: "border-orange-500/30", icon: AlertTriangle },
-  medium: { label: "MEDIUM", variant: "warning", color: "text-amber-400", bg: "bg-amber-500/10", borderColor: "border-amber-500/30", icon: AlertTriangle },
-  low: { label: "LOW", variant: "default", color: "text-blue-400", bg: "bg-blue-500/10", borderColor: "border-blue-500/30", icon: Bell },
+const SEVERITY_CONFIG: Record<
+  AlertSeverity,
+  {
+    label: string;
+    variant: "critical" | "destructive" | "warning" | "default";
+    color: string;
+    bg: string;
+    borderColor: string;
+    icon: typeof ShieldAlert;
+  }
+> = {
+  critical: {
+    label: "CRITICAL",
+    variant: "critical",
+    color: "text-red-400",
+    bg: "bg-red-500/10",
+    borderColor: "border-red-500/30",
+    icon: ShieldAlert,
+  },
+  high: {
+    label: "HIGH",
+    variant: "destructive",
+    color: "text-orange-400",
+    bg: "bg-orange-500/10",
+    borderColor: "border-orange-500/30",
+    icon: AlertTriangle,
+  },
+  medium: {
+    label: "MEDIUM",
+    variant: "warning",
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    borderColor: "border-amber-500/30",
+    icon: AlertTriangle,
+  },
+  low: {
+    label: "LOW",
+    variant: "default",
+    color: "text-blue-400",
+    bg: "bg-blue-500/10",
+    borderColor: "border-blue-500/30",
+    icon: Bell,
+  },
 };
 
 const TYPE_LABELS: Record<AlertType, string> = {
@@ -156,29 +263,61 @@ const TYPE_LABELS: Record<AlertType, string> = {
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 function getStats(alerts: AlertWithPatient[]) {
-  const active = alerts.filter(a => !a.acknowledged);
+  const active = alerts.filter((a) => !a.acknowledged);
   return [
-    { label: "Active Alerts", value: active.length.toString(), icon: ShieldAlert, color: "text-red-400", bg: "bg-red-500/10" },
-    { label: "Critical", value: active.filter(a => a.severity === "critical").length.toString(), icon: XCircle, color: "text-red-400", bg: "bg-red-500/10" },
-    { label: "Acknowledged", value: alerts.filter(a => a.acknowledged).length.toString(), icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10" },
-    { label: "Patients Affected", value: new Set(alerts.map(a => a.patient_id)).size.toString(), icon: User, color: "text-blue-400", bg: "bg-blue-500/10" },
+    {
+      label: "Active Alerts",
+      value: active.length.toString(),
+      icon: ShieldAlert,
+      color: "text-red-400",
+      bg: "bg-red-500/10",
+    },
+    {
+      label: "Critical",
+      value: active.filter((a) => a.severity === "critical").length.toString(),
+      icon: XCircle,
+      color: "text-red-400",
+      bg: "bg-red-500/10",
+    },
+    {
+      label: "Acknowledged",
+      value: alerts.filter((a) => a.acknowledged).length.toString(),
+      icon: CheckCircle2,
+      color: "text-green-400",
+      bg: "bg-green-500/10",
+    },
+    {
+      label: "Patients Affected",
+      value: new Set(alerts.map((a) => a.patient_id)).size.toString(),
+      icon: User,
+      color: "text-blue-400",
+      bg: "bg-blue-500/10",
+    },
   ];
 }
 
 // ─── Alert Detail Modal ───────────────────────────────────────────────────────
 
-function AlertDetailModal({ alert, onClose, onAcknowledge }: {
-  alert: AlertWithPatient;
+function AlertDetailModal({
+  alert,
+  onClose,
+  onAcknowledge,
+}: {
+  alert: AlertWithPatientType;
   onClose: () => void;
   onAcknowledge: (id: string, reason: string) => void;
 }) {
   const [overrideReason, setOverrideReason] = useState("");
   const cfg = SEVERITY_CONFIG[alert.severity];
-  const isCriticalOrHigh = alert.severity === "critical" || alert.severity === "high";
+  const isCriticalOrHigh =
+    alert.severity === "critical" || alert.severity === "high";
 
   const handleAck = () => {
     if (isCriticalOrHigh && !overrideReason.trim()) return;
-    onAcknowledge(alert.id, overrideReason.trim() || "Acknowledged by physician");
+    onAcknowledge(
+      alert.id,
+      overrideReason.trim() || "Acknowledged by physician",
+    );
     onClose();
   };
 
@@ -188,7 +327,9 @@ function AlertDetailModal({ alert, onClose, onAcknowledge }: {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget && !isCriticalOrHigh) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isCriticalOrHigh) onClose();
+      }}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.92, y: 16 }}
@@ -197,8 +338,10 @@ function AlertDetailModal({ alert, onClose, onAcknowledge }: {
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
         className={cn(
           "relative w-full max-w-lg mx-4 rounded-2xl border overflow-hidden",
-          cfg.borderColor, cfg.bg,
-          alert.severity === "critical" && "shadow-[0_0_40px_rgba(239,68,68,0.3)]"
+          cfg.borderColor,
+          cfg.bg,
+          alert.severity === "critical" &&
+            "shadow-[0_0_40px_rgba(239,68,68,0.3)]",
         )}
       >
         {/* Pulse ring for critical */}
@@ -207,12 +350,18 @@ function AlertDetailModal({ alert, onClose, onAcknowledge }: {
         )}
 
         {/* Header */}
-        <div className={cn(
-          "px-5 py-4",
-          alert.severity === "critical" ? "bg-red-600" :
-          alert.severity === "high" ? "bg-orange-600" :
-          alert.severity === "medium" ? "bg-amber-600" : "bg-blue-600"
-        )}>
+        <div
+          className={cn(
+            "px-5 py-4",
+            alert.severity === "critical"
+              ? "bg-red-600"
+              : alert.severity === "high"
+                ? "bg-orange-600"
+                : alert.severity === "medium"
+                  ? "bg-amber-600"
+                  : "bg-blue-600",
+          )}
+        >
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/15 shrink-0">
               <ShieldAlert className="w-5 h-5 text-white" />
@@ -223,11 +372,18 @@ function AlertDetailModal({ alert, onClose, onAcknowledge }: {
                   {cfg.label} · {TYPE_LABELS[alert.alert_type]}
                 </p>
               </div>
-              <h2 className="text-sm font-bold text-white leading-tight mt-0.5">{alert.title}</h2>
-              <p className="text-[10px] text-white/60 mt-0.5">{alert.patient_name} · {formatDate(alert.created_at)}</p>
+              <h2 className="text-sm font-bold text-white leading-tight mt-0.5">
+                {alert.title}
+              </h2>
+              <p className="text-[10px] text-white/60 mt-0.5">
+                {alert.patient_name} · {formatDate(alert.created_at)}
+              </p>
             </div>
             {!isCriticalOrHigh && (
-              <button onClick={onClose} className="text-white/60 hover:text-white transition-colors">
+              <button
+                onClick={onClose}
+                className="text-white/60 hover:text-white transition-colors"
+              >
                 <X className="w-4 h-4" />
               </button>
             )}
@@ -251,15 +407,23 @@ function AlertDetailModal({ alert, onClose, onAcknowledge }: {
 
           {/* Description */}
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-[var(--foreground-subtle)] font-semibold mb-1">Description</p>
-            <p className="text-sm text-[var(--foreground)] leading-relaxed">{alert.description}</p>
+            <p className="text-[10px] uppercase tracking-wider text-[var(--foreground-subtle)] font-semibold mb-1">
+              Description
+            </p>
+            <p className="text-sm text-[var(--foreground)] leading-relaxed">
+              {alert.description}
+            </p>
           </div>
 
           {/* Mechanism */}
           {alert.mechanism && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-[var(--foreground-subtle)] font-semibold mb-1">Mechanism</p>
-              <p className="text-sm text-[var(--foreground)] leading-relaxed">{alert.mechanism}</p>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--foreground-subtle)] font-semibold mb-1">
+                Mechanism
+              </p>
+              <p className="text-sm text-[var(--foreground)] leading-relaxed">
+                {alert.mechanism}
+              </p>
             </div>
           )}
 
@@ -267,11 +431,15 @@ function AlertDetailModal({ alert, onClose, onAcknowledge }: {
           {alert.alternatives && alert.alternatives.length > 0 && (
             <div className="p-3 rounded-xl bg-green-500/8 border border-green-500/20">
               <p className="text-[10px] uppercase tracking-wider text-green-400 font-semibold mb-2 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Recommended Actions / Alternatives
+                <CheckCircle2 className="w-3 h-3" /> Recommended Actions /
+                Alternatives
               </p>
               <ul className="space-y-1.5">
                 {alert.alternatives.map((alt, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-xs text-green-300">
+                  <li
+                    key={i}
+                    className="flex items-start gap-1.5 text-xs text-green-300"
+                  >
                     <ChevronRight className="w-3 h-3 shrink-0 mt-0.5" />
                     <span>{alt}</span>
                   </li>
@@ -288,7 +456,9 @@ function AlertDetailModal({ alert, onClose, onAcknowledge }: {
                 Acknowledged by {alert.acknowledged_by}
               </p>
               {alert.override_reason && (
-                <p className="text-xs text-green-300/70 mt-1.5 pl-5">{alert.override_reason}</p>
+                <p className="text-xs text-green-300/70 mt-1.5 pl-5">
+                  {alert.override_reason}
+                </p>
               )}
             </div>
           ) : (
@@ -296,12 +466,18 @@ function AlertDetailModal({ alert, onClose, onAcknowledge }: {
               {/* Override reason input */}
               <div>
                 <label className="text-[10px] uppercase tracking-wider text-[var(--foreground-subtle)] font-semibold block mb-1.5">
-                  {isCriticalOrHigh ? "Override Reason (required)" : "Acknowledgement Note (optional)"}
+                  {isCriticalOrHigh
+                    ? "Override Reason (required)"
+                    : "Acknowledgement Note (optional)"}
                 </label>
                 <textarea
                   value={overrideReason}
                   onChange={(e) => setOverrideReason(e.target.value)}
-                  placeholder={isCriticalOrHigh ? "Risk-benefit discussed with patient; alternative not suitable because..." : "Optional note..."}
+                  placeholder={
+                    isCriticalOrHigh
+                      ? "Risk-benefit discussed with patient; alternative not suitable because..."
+                      : "Optional note..."
+                  }
                   rows={2}
                   className="w-full px-3 py-2 text-xs bg-[var(--background)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder-[var(--foreground-subtle)] focus:outline-none focus:border-amber-500/50 resize-none"
                 />
@@ -324,7 +500,7 @@ function AlertDetailModal({ alert, onClose, onAcknowledge }: {
                     "flex-1 py-2 rounded-xl text-xs font-bold transition-colors",
                     isCriticalOrHigh
                       ? "bg-red-600 hover:bg-red-700 text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                      : "bg-amber-600 hover:bg-amber-700 text-white"
+                      : "bg-amber-600 hover:bg-amber-700 text-white",
                   )}
                 >
                   {isCriticalOrHigh ? "Override & Document" : "Acknowledge"}
@@ -340,7 +516,15 @@ function AlertDetailModal({ alert, onClose, onAcknowledge }: {
 
 // ─── Alert Row ────────────────────────────────────────────────────────────────
 
-function AlertRow({ alert, index, onClick }: { alert: AlertWithPatient; index: number; onClick: () => void }) {
+function AlertRow({
+  alert,
+  index,
+  onClick,
+}: {
+  alert: AlertWithPatientType;
+  index: number;
+  onClick: () => void;
+}) {
   const cfg = SEVERITY_CONFIG[alert.severity];
   const SeverityIcon = cfg.icon;
 
@@ -354,33 +538,49 @@ function AlertRow({ alert, index, onClick }: { alert: AlertWithPatient; index: n
         "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group",
         alert.acknowledged
           ? "border-[var(--border-subtle)] opacity-60 hover:opacity-80"
-          : cn(cfg.borderColor, cfg.bg, "hover:brightness-110")
+          : cn(cfg.borderColor, cfg.bg, "hover:brightness-110"),
       )}
     >
       {/* Severity icon */}
-      <div className={cn(
-        "flex items-center justify-center w-10 h-10 rounded-full shrink-0",
-        alert.severity === "critical" ? "bg-red-500/20" :
-        alert.severity === "high" ? "bg-orange-500/20" :
-        alert.severity === "medium" ? "bg-amber-500/20" : "bg-blue-500/20"
-      )}>
+      <div
+        className={cn(
+          "flex items-center justify-center w-10 h-10 rounded-full shrink-0",
+          alert.severity === "critical"
+            ? "bg-red-500/20"
+            : alert.severity === "high"
+              ? "bg-orange-500/20"
+              : alert.severity === "medium"
+                ? "bg-amber-500/20"
+                : "bg-blue-500/20",
+        )}
+      >
         <SeverityIcon className={cn("w-5 h-5", cfg.color)} />
       </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <Badge variant={cfg.variant} className="text-[9px] py-0 px-1.5 h-3.5 uppercase tracking-wider">
+          <Badge
+            variant={cfg.variant}
+            className="text-[9px] py-0 px-1.5 h-3.5 uppercase tracking-wider"
+          >
             {cfg.label}
           </Badge>
-          <span className="text-[10px] text-[var(--foreground-subtle)]">{TYPE_LABELS[alert.alert_type]}</span>
+          <span className="text-[10px] text-[var(--foreground-subtle)]">
+            {TYPE_LABELS[alert.alert_type]}
+          </span>
           {alert.acknowledged && (
-            <Badge variant="success" className="text-[9px] py-0 px-1.5 h-3.5 gap-0.5">
+            <Badge
+              variant="success"
+              className="text-[9px] py-0 px-1.5 h-3.5 gap-0.5"
+            >
               <CheckCircle2 className="w-2.5 h-2.5" /> Resolved
             </Badge>
           )}
         </div>
-        <p className="text-sm font-medium text-[var(--foreground)] mt-1 truncate">{alert.title}</p>
+        <p className="text-sm font-medium text-[var(--foreground)] mt-1 truncate">
+          {alert.title}
+        </p>
         <div className="flex items-center gap-3 mt-1">
           <span className="text-xs text-[var(--foreground-muted)] flex items-center gap-1">
             <User className="w-3 h-3" /> {alert.patient_name}
@@ -395,9 +595,14 @@ function AlertRow({ alert, index, onClick }: { alert: AlertWithPatient; index: n
 
       {/* Timestamp */}
       <div className="text-right shrink-0">
-        <p className="text-[10px] text-[var(--foreground-subtle)]">{formatDate(alert.created_at)}</p>
+        <p className="text-[10px] text-[var(--foreground-subtle)]">
+          {formatDate(alert.created_at)}
+        </p>
         <p className="text-[10px] text-[var(--foreground-subtle)] mt-0.5">
-          {new Date(alert.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+          {new Date(alert.created_at).toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </p>
       </div>
 
@@ -413,41 +618,147 @@ interface SafetyAlertsClientProps {
 }
 
 export function SafetyAlertsClient({ user }: SafetyAlertsClientProps) {
-  const [alerts, setAlerts] = useState(MOCK_ALERTS);
+  const [alerts, setAlerts] = useState<AlertWithPatientType[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [severityFilter, setSeverityFilter] = useState<"all" | AlertSeverity>("all");
+  const [severityFilter, setSeverityFilter] = useState<"all" | AlertSeverity>(
+    "all",
+  );
   const [showAcknowledged, setShowAcknowledged] = useState(true);
-  const [selectedAlert, setSelectedAlert] = useState<AlertWithPatient | null>(null);
+  const [selectedAlert, setSelectedAlert] =
+    useState<AlertWithPatientType | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleAcknowledge = (id: string, reason: string) => {
-    setAlerts(prev => prev.map(a =>
-      a.id === id
-        ? { ...a, acknowledged: true, acknowledged_by: `Dr. ${user.name}`, override_reason: reason }
-        : a
-    ));
-    setSelectedAlert(null);
+  // Fetch safety alerts from Supabase
+  useEffect(() => {
+    async function fetchSafetyAlerts() {
+      try {
+        setLoading(true);
+        const supabase = getSupabaseBrowserClient();
+
+        const { data, error } = await supabase
+          .from("safety_alerts")
+          .select(
+            `
+            *,
+            consultation:consultations!inner(
+              id,
+              patient_id,
+              patient:patients!inner(
+                id,
+                name
+              )
+            )
+          `,
+          )
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching safety alerts:", error);
+          setAlerts([]);
+          return;
+        }
+
+        // Transform the data to include patient information
+        const transformedAlerts: AlertWithPatientType[] = (data || []).map(
+          (alert: any) => ({
+            ...alert,
+            patient_name: alert.consultation.patient.name,
+            patient_id: alert.consultation.patient.id,
+          }),
+        );
+
+        setAlerts(transformedAlerts);
+      } catch (err) {
+        console.error("Error in fetchSafetyAlerts:", err);
+        setAlerts([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchSafetyAlerts();
+  }, []);
+
+  const handleAcknowledge = async (id: string, reason: string) => {
+    try {
+      const supabase = getSupabaseBrowserClient();
+
+      const { error } = await supabase
+        .from("safety_alerts")
+        .update({
+          acknowledged: true,
+          acknowledged_by: `Dr. ${user.name}`,
+          override_reason: reason,
+        })
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error acknowledging alert:", error);
+        return;
+      }
+
+      // Update local state
+      setAlerts((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                acknowledged: true,
+                acknowledged_by: `Dr. ${user.name}`,
+                override_reason: reason,
+              }
+            : a,
+        ),
+      );
+      setSelectedAlert(null);
+    } catch (err) {
+      console.error("Error in handleAcknowledge:", err);
+    }
   };
 
   const filteredAlerts = useMemo(() => {
-    return alerts.filter((a) => {
-      if (!showAcknowledged && a.acknowledged) return false;
-      if (severityFilter !== "all" && a.severity !== severityFilter) return false;
-      const matchesSearch =
-        a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (a.drug_a?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-        (a.drug_b?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-      return matchesSearch;
-    }).sort((a, b) => {
-      // Active first, then by severity
-      if (a.acknowledged !== b.acknowledged) return a.acknowledged ? 1 : -1;
-      const order: Record<AlertSeverity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-      return order[a.severity] - order[b.severity];
-    });
+    return alerts
+      .filter((a) => {
+        if (!showAcknowledged && a.acknowledged) return false;
+        if (severityFilter !== "all" && a.severity !== severityFilter)
+          return false;
+        const matchesSearch =
+          a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          a.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          a.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (a.drug_a?.toLowerCase().includes(searchQuery.toLowerCase()) ??
+            false) ||
+          (a.drug_b?.toLowerCase().includes(searchQuery.toLowerCase()) ??
+            false);
+        return matchesSearch;
+      })
+      .sort((a, b) => {
+        // Active first, then by severity
+        if (a.acknowledged !== b.acknowledged) return a.acknowledged ? 1 : -1;
+        const order: Record<AlertSeverity, number> = {
+          critical: 0,
+          high: 1,
+          medium: 2,
+          low: 3,
+        };
+        return order[a.severity] - order[b.severity];
+      });
   }, [alerts, searchQuery, severityFilter, showAcknowledged]);
 
   const stats = getStats(alerts);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-red-400 animate-spin" />
+          <p className="text-sm text-[var(--foreground-muted)]">
+            Loading safety alerts...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -469,14 +780,18 @@ export function SafetyAlertsClient({ user }: SafetyAlertsClientProps) {
             className="gap-1.5 text-xs"
             onClick={() => setShowAcknowledged(!showAcknowledged)}
           >
-            {showAcknowledged ? <BellOff className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
+            {showAcknowledged ? (
+              <BellOff className="w-3.5 h-3.5" />
+            ) : (
+              <Bell className="w-3.5 h-3.5" />
+            )}
             {showAcknowledged ? "Hide Resolved" : "Show Resolved"}
           </Button>
         </div>
       </div>
 
       {/* Critical banner if active critical alerts */}
-      {alerts.some(a => a.severity === "critical" && !a.acknowledged) && (
+      {alerts.some((a) => a.severity === "critical" && !a.acknowledged) && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -486,16 +801,26 @@ export function SafetyAlertsClient({ user }: SafetyAlertsClientProps) {
             <ShieldAlert className="w-5 h-5 text-red-400" />
           </div>
           <div className="flex-1">
-            <p className="text-xs font-bold text-red-400 uppercase tracking-wider">Critical Alerts Require Immediate Attention</p>
+            <p className="text-xs font-bold text-red-400 uppercase tracking-wider">
+              Critical Alerts Require Immediate Attention
+            </p>
             <p className="text-sm text-red-300 mt-0.5">
-              {alerts.filter(a => a.severity === "critical" && !a.acknowledged).length} critical alert(s) must be reviewed and documented before proceeding
+              {
+                alerts.filter(
+                  (a) => a.severity === "critical" && !a.acknowledged,
+                ).length
+              }{" "}
+              critical alert(s) must be reviewed and documented before
+              proceeding
             </p>
           </div>
           <Button
             size="sm"
             className="bg-red-600 hover:bg-red-700 text-white gap-1.5"
             onClick={() => {
-              const firstCritical = alerts.find(a => a.severity === "critical" && !a.acknowledged);
+              const firstCritical = alerts.find(
+                (a) => a.severity === "critical" && !a.acknowledged,
+              );
               if (firstCritical) setSelectedAlert(firstCritical);
             }}
           >
@@ -510,15 +835,29 @@ export function SafetyAlertsClient({ user }: SafetyAlertsClientProps) {
         {stats.map((stat, i) => {
           const Icon = stat.icon;
           return (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+            >
               <Card className="border-[var(--border)]">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-xs text-[var(--foreground-subtle)]">{stat.label}</p>
-                      <p className="text-2xl font-bold text-[var(--foreground)] mt-0.5">{stat.value}</p>
+                      <p className="text-xs text-[var(--foreground-subtle)]">
+                        {stat.label}
+                      </p>
+                      <p className="text-2xl font-bold text-[var(--foreground)] mt-0.5">
+                        {stat.value}
+                      </p>
                     </div>
-                    <div className={cn("flex items-center justify-center w-9 h-9 rounded-lg", stat.bg)}>
+                    <div
+                      className={cn(
+                        "flex items-center justify-center w-9 h-9 rounded-lg",
+                        stat.bg,
+                      )}
+                    >
                       <Icon className={cn("w-4 h-4", stat.color)} />
                     </div>
                   </div>
@@ -541,35 +880,47 @@ export function SafetyAlertsClient({ user }: SafetyAlertsClientProps) {
           />
         </div>
         <div className="flex items-center gap-1.5">
-          {(["all", "critical", "high", "medium", "low"] as const).map((sev) => {
-            const sevCfg = sev !== "all" ? SEVERITY_CONFIG[sev] : null;
-            return (
-              <button
-                key={sev}
-                onClick={() => setSeverityFilter(sev)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
-                  severityFilter === sev
-                    ? sev === "all"
-                      ? "bg-blue-500/15 border-blue-500/30 text-blue-400"
-                      : cn(sevCfg!.bg, sevCfg!.borderColor, sevCfg!.color)
-                    : "bg-[var(--surface)] border-[var(--border)] text-[var(--foreground-muted)] hover:text-[var(--foreground)]"
-                )}
-              >
-                {sev === "all" ? "All" : sevCfg!.label}
-              </button>
-            );
-          })}
+          {(["all", "critical", "high", "medium", "low"] as const).map(
+            (sev) => {
+              const sevCfg = sev !== "all" ? SEVERITY_CONFIG[sev] : null;
+              return (
+                <button
+                  key={sev}
+                  onClick={() => setSeverityFilter(sev)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+                    severityFilter === sev
+                      ? sev === "all"
+                        ? "bg-blue-500/15 border-blue-500/30 text-blue-400"
+                        : cn(sevCfg!.bg, sevCfg!.borderColor, sevCfg!.color)
+                      : "bg-[var(--surface)] border-[var(--border)] text-[var(--foreground-muted)] hover:text-[var(--foreground)]",
+                  )}
+                >
+                  {sev === "all" ? "All" : sevCfg!.label}
+                </button>
+              );
+            },
+          )}
         </div>
       </div>
 
       {/* Alerts List */}
       <div className="space-y-2">
-        {filteredAlerts.length === 0 ? (
+        {alerts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-[var(--foreground-subtle)]">
+            <Shield className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm">No safety alerts found</p>
+            <p className="text-xs mt-1">
+              All clear — no active safety concerns detected
+            </p>
+          </div>
+        ) : filteredAlerts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-[var(--foreground-subtle)]">
             <Shield className="w-10 h-10 mb-3 opacity-30" />
             <p className="text-sm">No alerts match your criteria</p>
-            <p className="text-xs mt-1">All clear — no active safety concerns</p>
+            <p className="text-xs mt-1">
+              All clear — no active safety concerns
+            </p>
           </div>
         ) : (
           filteredAlerts.map((alert, i) => (

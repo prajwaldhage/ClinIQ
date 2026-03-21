@@ -576,64 +576,97 @@ export function PatientsClient({ user }: PatientsClientProps) {
     const supabase = getSupabaseBrowserClient();
 
     try {
-      // Fetch patients with their consultations and appointments
+      console.log("Fetching patients from database...");
+
+      // Fetch all patients - simplified query without joins first
       const { data: patientsData, error } = await supabase
         .from("patients")
-        .select(`
-          id, name, dob, gender, blood_group, allergies, chronic_conditions,
-          abha_id, phone, address, emergency_contact, created_at,
-          consultations(id, started_at),
-          appointments(id, date, time_slot, status)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-
-      if (patientsData) {
-        const mapped: PatientType[] = patientsData.map((p) => {
-          const allergies = (p.allergies ?? []) as string[];
-          const chronicConditions = (p.chronic_conditions ?? []) as string[];
-          const consultations = (p.consultations ?? []) as Array<{ id: string; started_at: string }>;
-          const appointments = (p.appointments ?? []) as Array<{ id: string; date: string; time_slot: string; status: string }>;
-
-          // Calculate last visit from consultations
-          const sortedConsultations = consultations.sort(
-            (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
-          );
-          const lastVisit = sortedConsultations.length > 0 ? sortedConsultations[0].started_at : null;
-
-          // Find upcoming appointment
-          const today = new Date().toISOString().split("T")[0];
-          const upcomingAppts = appointments
-            .filter((a) => a.status !== "cancelled" && a.date >= today)
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          const nextAppt = upcomingAppts.length > 0
-            ? `${new Date(upcomingAppts[0].date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} ${upcomingAppts[0].time_slot}`
-            : null;
-
-          return {
-            id: p.id as string,
-            name: (p.name ?? "Patient") as string,
-            age: p.dob ? calculateAge(p.dob as string) : 0,
-            gender: ((p.gender ?? "M") as string).toUpperCase() as "M" | "F",
-            phone: (p.phone ?? "") as string,
-            blood_group: (p.blood_group ?? "") as string,
-            dob: (p.dob ?? "") as string,
-            abha_id: (p.abha_id ?? "") as string,
-            address: (p.address ?? "") as string,
-            allergies,
-            chronic_conditions: chronicConditions,
-            emergency_contact: (p.emergency_contact ?? "") as string,
-            last_visit: lastVisit,
-            total_visits: consultations.length,
-            status: "active" as const,
-            risk_level: determineRiskLevel(allergies, chronicConditions),
-            upcoming_appointment: nextAppt,
-          };
-        });
-
-        setPatients(mapped);
+      if (error) {
+        console.error("Query error:", error);
+        alert(`Database error: ${error.message || JSON.stringify(error)}`);
+        throw error;
       }
+
+      if (!patientsData || patientsData.length === 0) {
+        console.warn("No patients found");
+        setPatients([]);
+        return;
+      }
+
+      console.log(`Found ${patientsData.length} patients`);
+
+      // Fetch consultations and appointments separately
+      const patientIds = patientsData.map((p) => p.id);
+
+      const { data: consultationsData } = await supabase
+        .from("consultations")
+        .select("patient_id, id, started_at")
+        .in("patient_id", patientIds);
+
+      const { data: appointmentsData } = await supabase
+        .from("appointments")
+        .select("patient_id, id, date, time_slot, status")
+        .in("patient_id", patientIds);
+
+      console.log("Consultations:", consultationsData?.length || 0);
+      console.log("Appointments:", appointmentsData?.length || 0);
+
+      // Map the data
+      const mapped: PatientType[] = patientsData.map((p) => {
+        const allergies = (p.allergies ?? []) as string[];
+        const chronicConditions = (p.chronic_conditions ?? []) as string[];
+
+        // Get consultations for this patient
+        const patientConsultations = (consultationsData || []).filter(
+          (c: any) => c.patient_id === p.id
+        );
+
+        // Get appointments for this patient
+        const patientAppointments = (appointmentsData || []).filter(
+          (a: any) => a.patient_id === p.id
+        );
+
+        // Calculate last visit from consultations
+        const sortedConsultations = patientConsultations.sort(
+          (a: any, b: any) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+        );
+        const lastVisit = sortedConsultations.length > 0 ? sortedConsultations[0].started_at : null;
+
+        // Find upcoming appointment
+        const today = new Date().toISOString().split("T")[0];
+        const upcomingAppts = patientAppointments
+          .filter((a: any) => a.status !== "cancelled" && a.date >= today)
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const nextAppt = upcomingAppts.length > 0
+          ? `${new Date(upcomingAppts[0].date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} ${upcomingAppts[0].time_slot}`
+          : null;
+
+        return {
+          id: p.id as string,
+          name: (p.name ?? "Patient") as string,
+          age: p.dob ? calculateAge(p.dob as string) : 0,
+          gender: ((p.gender ?? "M") as string).toUpperCase() as "M" | "F",
+          phone: (p.phone ?? "") as string,
+          blood_group: (p.blood_group ?? "") as string,
+          dob: (p.dob ?? "") as string,
+          abha_id: (p.abha_id ?? "") as string,
+          address: (p.address ?? "") as string,
+          allergies,
+          chronic_conditions: chronicConditions,
+          emergency_contact: (p.emergency_contact ?? "") as string,
+          last_visit: lastVisit,
+          total_visits: patientConsultations.length,
+          status: "active" as const,
+          risk_level: determineRiskLevel(allergies, chronicConditions),
+          upcoming_appointment: nextAppt,
+        };
+      });
+
+      console.log("Mapped patients:", mapped.length);
+      setPatients(mapped);
     } catch (error) {
       console.error("Error fetching patients:", error);
     } finally {
