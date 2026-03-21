@@ -16,6 +16,7 @@ import { FamilyHealthGraph } from "@/components/doctor/FamilyHealthGraph";
 import { FlashbackCard } from "@/components/doctor/FlashbackCard";
 import { ProtocolCreditBadge, GlobalRepositoryModal, useProtocolCredits } from "@/components/doctor/ProtocolCreditBadge";
 import { formatDate, cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 // ─── Mock data for demo ───────────────────────────────────────────────────────
 
@@ -62,9 +63,105 @@ function StatCard({ stat, index }: { stat: typeof MOCK_STATS[0]; index: number }
   );
 }
 
+// ─── Add Patient Modal ────────────────────────────────────────────────────────
+function AddPatientModal({ isOpen, onClose, onAdded, doctorId, doctorName }: { isOpen: boolean, onClose: () => void, onAdded: (data: any) => void, doctorId: string, doctorName: string }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("M");
+  const [complaint, setComplaint] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  if (!isOpen) return null;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      let dob = null;
+      if (age) {
+        const y = new Date().getFullYear() - parseInt(age);
+        dob = `${y}-01-01`;
+      }
+      const r1 = await fetch("/api/patients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone, dob, gender, blood_group: "Unknown" })
+      });
+      const d1 = await r1.json();
+      const patientId = d1.patient?.user_id || `temp-${Date.now()}`;
+
+      const r2 = await fetch("/api/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient_id: patientId,
+          patient_name: name,
+          doctor_id: doctorId,
+          doctor_name: doctorName,
+          priority: "normal",
+          reason: complaint,
+          visit_type: "general"
+        })
+      });
+      const d2 = await r2.json();
+      if (d2.entry) {
+        onAdded(d2.entry);
+      }
+      onClose();
+      setName(""); setPhone(""); setAge(""); setComplaint("");
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[var(--surface)] rounded-2xl p-6 w-full max-w-md border border-[var(--border)] shadow-xl hidden-scrollbar max-h-screen overflow-y-auto">
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Add Patient</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Name</label>
+            <input required value={name} onChange={e => setName(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="E.g. Ramesh Patel" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Phone</label>
+            <input required value={phone} onChange={e => setPhone(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="10-digit number" />
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Age</label>
+              <input type="number" value={age} onChange={e => setAge(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="e.g. 45" />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Gender</label>
+              <select value={gender} onChange={e => setGender(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]">
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+                <option value="O">Other</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Chief Complaint</label>
+            <textarea required value={complaint} onChange={e => setComplaint(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="Reason for visit..." rows={3} />
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <Button type="button" variant="outline" onClick={onClose} className="rounded-xl" disabled={loading}>Cancel</Button>
+            <Button type="submit" className="rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white gap-2" disabled={loading}>
+              {loading ? "Adding..." : "Add Patient"}
+            </Button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Patient row ──────────────────────────────────────────────────────────────
 
-function PatientRow({ appt, index }: { appt: typeof MOCK_APPOINTMENTS[0]; index: number }) {
+function PatientRow({ appt, index, onStart }: { appt: any; index: number; onStart: (appt: any) => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
@@ -116,12 +213,10 @@ function PatientRow({ appt, index }: { appt: typeof MOCK_APPOINTMENTS[0]; index:
 
       {/* Action */}
       {appt.status !== "completed" && (
-        <Link href={`/doctor/consultation?id=new&patientId=${appt.id}&patientName=${encodeURIComponent(appt.name)}`}>
-          <Button size="sm" className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-xl">
-            <Stethoscope className="w-3 h-3" />
-            Start
-          </Button>
-        </Link>
+        <Button size="sm" onClick={(e) => { e.preventDefault(); onStart(appt); }} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-xl">
+          <Stethoscope className="w-3 h-3" />
+          Start
+        </Button>
       )}
     </motion.div>
   );
@@ -134,14 +229,90 @@ interface DoctorDashboardClientProps {
 }
 
 export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [showRepoModal, setShowRepoModal] = useState(false);
+  const [showAddPatient, setShowAddPatient] = useState(false);
   const { credits, addCredits } = useProtocolCredits();
+  const [appointments, setAppointments] = useState<any[]>(MOCK_APPOINTMENTS);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredAppts = MOCK_APPOINTMENTS.filter((a) =>
-    a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.complaint.toLowerCase().includes(searchQuery.toLowerCase())
+  React.useEffect(() => {
+    async function fetchQueue() {
+      try {
+        const res = await fetch(`/api/queue?doctor_id=${user.id}`);
+        const data = await res.json();
+        if (data.queue && data.queue.length > 0) {
+          const mapped = data.queue.map((q: any) => ({
+            id: q.id,
+            patient_id: q.patient_id,
+            name: q.patient_name || 'Unknown Patient',
+            age: 35, // default since we aren't joining patients easily
+            gender: 'M',
+            time: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric' }).format(new Date(q.created_at || Date.now())),
+            type: q.visit_type || 'general',
+            complaint: q.reason || 'No complaint listed',
+            lastVisit: 'Recent',
+            status: q.status,
+            urgency: q.priority || 'normal',
+          }));
+          setAppointments(mapped);
+        } else {
+          setAppointments([]); // Clear mock data if no queue
+        }
+      } catch (err) { console.error(err); }
+      finally { setIsLoading(false); }
+    }
+    fetchQueue();
+  }, [user.id]);
+
+  const handleStartConsultation = async (appt: any) => {
+    try {
+      // Update queue status to in-consultation
+      await fetch('/api/queue', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: appt.id, status: 'in-consultation' })
+      });
+      // Remove from view immediately for snappy UI
+      setAppointments(prev => prev.filter(p => p.id !== appt.id));
+
+      // Navigate
+      router.push(`/doctor/consultation?id=new&patientId=${appt.patient_id}&patientName=${encodeURIComponent(appt.name)}&queueId=${appt.id}`);
+    } catch (err) {
+      console.error("Failed to start consultation", err);
+    }
+  };
+
+  const handlePatientAdded = (entry: any) => {
+    const newAppt = {
+      id: entry.id,
+      patient_id: entry.patient_id,
+      name: entry.patient_name || 'Unknown Patient',
+      age: 35,
+      gender: 'M',
+      time: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric' }).format(new Date(entry.created_at || Date.now())),
+      type: entry.visit_type || 'general',
+      complaint: entry.reason || 'No complaint listed',
+      lastVisit: 'First Visit',
+      status: entry.status,
+      urgency: entry.priority || 'normal',
+    };
+    setAppointments(prev => [...prev, newAppt]);
+  };
+
+  const filteredAppts = appointments.filter((a) =>
+    (a.status === "waiting" || a.status === "pending") &&
+    (a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.complaint.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const displayStats = [
+    { label: "Today's Patients", value: appointments.length.toString(), icon: Users, delta: "Live count", color: "text-[#4A90E2]", bg: "bg-[#4A90E2]/10" },
+    { label: "Consultations Done", value: appointments.filter((a) => a.status === "completed").length.toString(), icon: CheckCircle2, delta: "Live tracking", color: "text-[#10B981]", bg: "bg-[#10B981]/10" },
+    MOCK_STATS[2],
+    MOCK_STATS[3],
+  ];
 
   const now = new Date();
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
@@ -162,11 +333,11 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-            {greeting}, Dr. {user.name.split(" ")[0]}
+            {greeting},  {user.name.split(" ")[0]}
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1 flex items-center gap-1.5">
             <CalendarDays className="w-4 h-4" />
-            {formatDate(new Date())} · {MOCK_APPOINTMENTS.filter(a => a.status === "pending").length} patients waiting
+            {formatDate(new Date())} · {filteredAppts.length} patients waiting
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -181,22 +352,29 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
             Repository
           </button>
 
-          <Button variant="outline" size="sm" className="gap-1.5 rounded-xl border-[var(--border)] hover:bg-[var(--surface-elevated)]">
+          <Button variant="outline" size="sm" className="gap-1.5 rounded-xl border-[var(--border)] hover:bg-[var(--surface-elevated)]" onClick={() => router.push('/doctor/emr')}>
             <FileText className="w-3.5 h-3.5" />
             All Records
           </Button>
-          <Link href="/doctor/consultation?id=new">
-            <Button size="sm" className="gap-1.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)]">
-              <Plus className="w-3.5 h-3.5" />
-              New Consultation
-            </Button>
-          </Link>
+          <Button size="sm" onClick={() => setShowAddPatient(true)} className="gap-1.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white">
+            <Plus className="w-3.5 h-3.5" />
+            Add Patient
+          </Button>
         </div>
       </div>
 
+      {/* Add Patient Modal */}
+      <AddPatientModal
+        isOpen={showAddPatient}
+        onClose={() => setShowAddPatient(false)}
+        onAdded={handlePatientAdded}
+        doctorId={user.id}
+        doctorName={user.name}
+      />
+
       {/* ─── Stats grid ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {MOCK_STATS.map((stat, i) => (
+        {displayStats.map((stat, i) => (
           <StatCard key={stat.label} stat={stat} index={i} />
         ))}
       </div>
@@ -220,9 +398,25 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
           </div>
 
           <div className="space-y-2">
-            {filteredAppts.map((appt, i) => (
-              <PatientRow key={appt.id} appt={appt} index={i} />
-            ))}
+            {isLoading ? (
+              <div className="animate-pulse flex space-x-4 p-4 rounded-xl border border-[var(--border)]">
+                <div className="rounded-full bg-[var(--surface-elevated)] h-10 w-10"></div>
+                <div className="flex-1 space-y-4 py-1">
+                  <div className="h-4 bg-[var(--surface-elevated)] rounded w-3/4"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-[var(--surface-elevated)] rounded w-5/6"></div>
+                  </div>
+                </div>
+              </div>
+            ) : filteredAppts.length === 0 ? (
+              <div className="p-8 text-center border border-[var(--border)] rounded-xl border-dashed">
+                <p className="text-[var(--text-secondary)] text-sm">No patients waiting in queue today.</p>
+              </div>
+            ) : (
+              filteredAppts.map((appt, i) => (
+                <PatientRow key={appt.id} appt={appt} index={i} onStart={handleStartConsultation} />
+              ))
+            )}
           </div>
         </div>
 
