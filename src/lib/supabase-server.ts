@@ -33,3 +33,5 @@ export function getSupabaseAdminClient() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
+
+export { getSupabaseServerClient as createServerClient };

@@ -10,7 +10,7 @@ import {
   ChevronRight,
   Stethoscope,
   Pill,
-  Flask,
+  FlaskConical,
   Scan,
   Activity,
   Clock,
@@ -73,7 +73,7 @@ export function PatientTimeline({ patientId }: PatientTimelineProps) {
     > = {
       stethoscope: Stethoscope,
       pill: Pill,
-      flask: Flask,
+      flask: FlaskConical,
       scan: Scan,
       file: FileText,
       "file-text": FileText,
@@ -368,7 +368,7 @@ function ConsultationDetails({ data }: { data: Record<string, unknown> }) {
             <div className="space-y-1">
               {labTests.slice(0, 3).map((t, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Flask className="w-3 h-3 text-blue-400 shrink-0" />
+                  <FlaskConical className="w-3 h-3 text-blue-400 shrink-0" />
                   <span className="text-[11px] text-[var(--foreground)] truncate">
                     {t}
                   </span>
