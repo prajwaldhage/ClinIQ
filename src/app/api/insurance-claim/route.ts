@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
             },
             consultation: {
                 type: consultation.consultation_type,
-                chief_complaint: consultation.chief_complaint || emr?.chief_complaint,
+                chief_complaint: consultation.chief_complaint || (emr as any)?.chief_complaint,
                 started_at: consultation.started_at,
                 ended_at: consultation.ended_at,
                 duration_minutes: consultation.ended_at

@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
             startedAt: consultation.started_at,
             endedAt: consultation.ended_at,
             durationMs: durationMs,
-            chiefComplaint: consultation.chief_complaint || emr?.chief_complaint as string,
+            chiefComplaint: consultation.chief_complaint || (emr as any)?.chief_complaint,
             symptoms: (emr?.symptoms || []) as string[],
             vitals: (emr?.vitals || {}) as Record<string, string | number>,
             physicalExamination: emr?.physical_examination as string,

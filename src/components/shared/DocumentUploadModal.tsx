@@ -11,7 +11,7 @@ import {
   AlertCircle,
   Loader2,
   Pill,
-  Flask,
+  FlaskConical as Flask,
   FileCheck,
   Scan,
 } from "lucide-react";
@@ -295,7 +295,7 @@ export function DocumentUploadModal({
                   </div>
 
                   {/* Extracted Data Preview */}
-                  {result.structured_data && (
+                  {!!result.structured_data && (
                     <Card className="border-blue-500/20">
                       <CardContent className="p-4 space-y-3">
                         <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">
@@ -360,14 +360,14 @@ function renderExtractedData(data: Record<string, unknown>) {
 
   return (
     <div className="space-y-3">
-      {data.doctor_name && (
+      {!!data.doctor_name && (
         <div>
           <p className="text-[10px] text-[var(--foreground-subtle)] uppercase tracking-wider mb-1">
             Doctor
           </p>
           <p className="text-xs font-semibold text-[var(--foreground)]">
             {data.doctor_name as string}
-            {data.hospital && (
+            {!!data.hospital && (
               <span className="text-[var(--foreground-subtle)] font-normal">
                 {" "}
                 · {data.hospital as string}
@@ -377,7 +377,7 @@ function renderExtractedData(data: Record<string, unknown>) {
         </div>
       )}
 
-      {data.date && (
+      {!!data.date && (
         <div>
           <p className="text-[10px] text-[var(--foreground-subtle)] uppercase tracking-wider mb-1">
             Document Date
@@ -456,7 +456,7 @@ function renderExtractedData(data: Record<string, unknown>) {
         </div>
       )}
 
-      {data.notes && (
+      {!!data.notes && (
         <div className="bg-blue-500/5 border border-blue-500/15 rounded-lg p-2.5">
           <p className="text-[10px] text-blue-400 uppercase tracking-wider mb-1">
             Notes
@@ -467,7 +467,7 @@ function renderExtractedData(data: Record<string, unknown>) {
         </div>
       )}
 
-      {data.confidence && (
+      {!!data.confidence && (
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
