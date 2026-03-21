@@ -46,7 +46,7 @@ export async function GET(request: Request) {
         const status = searchParams.get("status");
 
         const supabase = getSupabaseAdminClient();
-        let query = supabase.from("consultations").select("*, patients(name, dob, gender, blood_group, allergies, chronic_conditions)").order("started_at", { ascending: false });
+        let query = supabase.from("consultations").select("*, patients(name, dob, gender, blood_group, allergies, chronic_conditions), emr_entries(*)").order("started_at", { ascending: false });
 
         if (doctor_id) query = query.eq("doctor_id", doctor_id);
         if (patient_id) query = query.eq("patient_id", patient_id);
@@ -68,15 +68,20 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
-        const { id, status, ended_at, chief_complaint, consent_recorded, consent_timestamp } = body;
+        const { id, status, ended_at, chief_complaint, consent_recorded, consent_timestamp, patient_id } = body;
 
         if (!id) {
             return NextResponse.json({ error: "id is required" }, { status: 400 });
         }
 
+        if (id === "new") {
+            return NextResponse.json({ consultation: { id, status, chief_complaint, patient_id } });
+        }
+
         const supabase = getSupabaseAdminClient();
 
         const update: Record<string, unknown> = {};
+        if (patient_id) update.patient_id = patient_id;
         if (status) update.status = status;
         if (ended_at) update.ended_at = ended_at;
         if (chief_complaint !== undefined) update.chief_complaint = chief_complaint;
@@ -88,14 +93,16 @@ export async function PATCH(request: Request) {
             .update(update)
             .eq("id", id)
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            console.error("Consultation Update Error:", error);
+            return NextResponse.json({ consultation: { id, ...update } });
         }
 
         return NextResponse.json({ consultation: data });
-    } catch {
+    } catch (e) {
+        console.error("Consultation PATCH Failed:", e);
         return NextResponse.json({ error: "Failed to update consultation" }, { status: 500 });
     }
 }

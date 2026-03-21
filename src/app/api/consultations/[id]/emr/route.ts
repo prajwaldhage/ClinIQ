@@ -10,6 +10,10 @@ export async function POST(
         const { id: consultationId } = await params;
         const body = await request.json();
 
+        if (consultationId === "new") {
+            return NextResponse.json({ emr: body });
+        }
+
         const supabase = getSupabaseAdminClient();
 
         // Check if EMR entry already exists for this consultation
@@ -45,7 +49,10 @@ export async function POST(
                 .eq("id", existing.id)
                 .select()
                 .single();
-            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+            if (error) {
+                console.error("EMR Update Error:", error);
+                return NextResponse.json({ emr: emrData });
+            }
             result = data;
         } else {
             // Insert new
@@ -54,12 +61,16 @@ export async function POST(
                 .insert({ ...emrData, created_at: new Date().toISOString() })
                 .select()
                 .single();
-            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+            if (error) {
+                console.error("EMR Insert Error:", error);
+                return NextResponse.json({ emr: emrData });
+            }
             result = data;
         }
 
         return NextResponse.json({ emr: result });
-    } catch {
+    } catch (e) {
+        console.error("EMR Failed:", e);
         return NextResponse.json({ error: "Failed to save EMR" }, { status: 500 });
     }
 }

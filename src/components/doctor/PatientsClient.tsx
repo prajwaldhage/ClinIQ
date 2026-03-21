@@ -277,7 +277,7 @@ function PatientDetail({ patient, onClose }: { patient: PatientType; onClose: ()
         <div className="px-6 py-4 space-y-5">
           {/* Quick Actions */}
           <div className="grid grid-cols-3 gap-2">
-            <Link href={`/doctor/consultation/new?patientId=${patient.id}`}>
+            <Link href={`/doctor/consultation?patientId=${patient.id}`}>
               <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs">
                 <Stethoscope className="w-3.5 h-3.5" /> Consult
               </Button>

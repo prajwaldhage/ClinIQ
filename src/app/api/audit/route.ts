@@ -10,7 +10,7 @@ import type { AuditEntry } from "@/lib/types";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { entry }: { entry: AuditEntry } = body;
+    const entry: AuditEntry = body.entry || body;
 
     if (!entry || !entry.hash || !entry.consultation_id) {
       return NextResponse.json({ error: "Invalid audit entry" }, { status: 400 });
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     // Try to persist to Supabase; fall back gracefully if table not yet created
     try {
       const supabase = getSupabaseAdminClient();
-      const { error } = await supabase.from("audit_logs").insert({
+      const { error } = await supabase.from("audit_log").insert({
         id: entry.id,
         consultation_id: entry.consultation_id,
         event_type: entry.event_type,

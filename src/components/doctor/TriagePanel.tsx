@@ -282,7 +282,7 @@ export function TriagePanel({ onTriageAccepted }: TriagePanelProps) {
       patientName: patch.patient.name,
       complaint: patch.chief_complaint,
     });
-    router.push(`/doctor/consultation/new?${params.toString()}`);
+    router.push(`/doctor/consultation?${params.toString()}`);
   };
 
   return (

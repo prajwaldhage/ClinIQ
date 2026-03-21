@@ -21,6 +21,7 @@ import { ConsentRecorder } from "./ConsentRecorder";
 import { PatientSummaryPanel } from "./PatientSummaryPanel";
 import { RuralModeIndicator } from "@/components/shared/RuralModeIndicator";
 import { MedicineAutocomplete } from "@/components/shared/MedicineAutocomplete";
+import { PatientSelectDropdown } from "./PatientSelectDropdown";
 import { useMedicalScribe } from "@/hooks/useMedicalScribe";
 import { useConsultationStore } from "@/store/consultationStore";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
@@ -784,17 +785,60 @@ function DifferentialPanel({
 interface ActiveConsultationClientProps {
   consultationId?: string;
   patientName?: string;
+  patientId?: string;
 }
 
 export function ActiveConsultationClient({
   consultationId = "new",
-  patientName = "Priya Sharma",
+  patientName: initialPatientName = "Priya Sharma",
+  patientId: initialPatientId = "",
 }: ActiveConsultationClientProps) {
   const {
     isRecording, isConnecting, transcript, interimText,
     detectedLanguage, wordCount, durationMs, segments, error,
     startRecording, stopRecording, resetTranscript,
   } = useMedicalScribe(consultationId);
+
+  const [patientId, setPatientId] = useState(initialPatientId);
+  const [patientName, setPatientName] = useState(initialPatientName);
+  const [patientsList, setPatientsList] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    fetch("/api/patients")
+      .then(res => res.json())
+      .then(data => {
+        if (data.patients) {
+          setPatientsList(data.patients);
+          if (!initialPatientId && data.patients.length > 0) {
+            const match = data.patients.find((p: any) => p.name === initialPatientName);
+            setPatientId(match ? match.id : data.patients[0].id);
+            if (!match) setPatientName(data.patients[0].name);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [initialPatientId, initialPatientName]);
+
+  const handlePatientSelect = async (newId: string, _newName: string) => {
+    const selected = patientsList.find(p => p.id === newId);
+    if (!selected) return;
+
+    setPatientId(newId);
+    setPatientName(selected.name);
+
+    if (consultationId && consultationId !== "new") {
+      try {
+        await fetch("/api/consultations", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: consultationId,
+            patient_id: newId
+          })
+        });
+      } catch { }
+    }
+  };
 
   const { safety_alerts, differentials, emr_entry, audit_entries, acknowledgeAlert, setIsExtracting, addAuditEntry } = useConsultationStore();
   const extractionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1144,9 +1188,13 @@ export function ActiveConsultationClient({
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-500/10">
             <Stethoscope className="w-4 h-4 text-blue-400" />
           </div>
-          <div>
-            <h1 className="text-sm font-semibold text-[var(--foreground)]">{patientName}</h1>
-            <p className="text-[10px] text-[var(--foreground-subtle)]">
+          <div className="flex flex-col items-start justify-center gap-1">
+            <PatientSelectDropdown
+              patients={patientsList}
+              currentPatientId={patientId}
+              onSelect={handlePatientSelect}
+            />
+            <p className="text-[10px] text-[var(--foreground-subtle)] ml-3">
               Active Consultation · {isRecording ? "Recording" : "Paused"}
               {isRecording && (
                 <span className="ml-1.5 text-red-400 font-mono">{formatDurationStr(durationMs)}</span>

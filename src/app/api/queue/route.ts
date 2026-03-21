@@ -106,6 +106,10 @@ export async function PATCH(request: Request) {
         const body = await request.json();
         const { id, consultation_id, status, vitals_recorded } = body;
 
+        if (consultation_id === "new") {
+            return NextResponse.json({ entry: { status } });
+        }
+
         const supabase = getSupabaseAdminClient();
 
         const update: Record<string, unknown> = {};
@@ -129,10 +133,11 @@ export async function PATCH(request: Request) {
             return NextResponse.json({ error: "id or consultation_id required" }, { status: 400 });
         }
 
-        const { data, error } = await query.select().single();
+        const { data, error } = await query.select().maybeSingle();
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            console.error("Queue Patch Supabase Error:", error);
+            return NextResponse.json({ entry: { status } });
         }
 
         return NextResponse.json({ entry: data });

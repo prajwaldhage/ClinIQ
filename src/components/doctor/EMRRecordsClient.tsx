@@ -342,14 +342,14 @@ function EMRDetail({ record, onClose }: { record: EMRRecord; onClose: () => void
           >
             <div className="grid grid-cols-4 gap-2">
               {[
-                { label: "BP", value: `${record.vitals.bp_systolic}/${record.vitals.bp_diastolic}`, unit: "mmHg", icon: Activity, alert: record.vitals.bp_systolic > 140 },
-                { label: "Heart Rate", value: record.vitals.heart_rate.toString(), unit: "bpm", icon: Heart, alert: record.vitals.heart_rate > 100 },
-                { label: "Temp", value: record.vitals.temperature.toString(), unit: "°F", icon: Thermometer, alert: record.vitals.temperature > 100 },
-                { label: "SpO₂", value: record.vitals.spo2.toString(), unit: "%", icon: Droplets, alert: record.vitals.spo2 < 94 },
-                { label: "Weight", value: record.vitals.weight.toString(), unit: "kg", icon: User, alert: false },
-                { label: "Height", value: record.vitals.height.toString(), unit: "cm", icon: User, alert: false },
-                { label: "RR", value: record.vitals.respiratory_rate.toString(), unit: "/min", icon: Wind, alert: record.vitals.respiratory_rate > 24 },
-                { label: "BMI", value: (record.vitals.weight / ((record.vitals.height / 100) ** 2)).toFixed(1), unit: "kg/m²", icon: Activity, alert: false },
+                { label: "BP", value: record.vitals.bp_systolic && record.vitals.bp_diastolic ? `${record.vitals.bp_systolic}/${record.vitals.bp_diastolic}` : "--", unit: "mmHg", icon: Activity, alert: (record.vitals.bp_systolic || 0) > 140 },
+                { label: "Heart Rate", value: record.vitals.heart_rate?.toString() ?? "--", unit: "bpm", icon: Heart, alert: (record.vitals.heart_rate || 0) > 100 },
+                { label: "Temp", value: record.vitals.temperature?.toString() ?? "--", unit: "°F", icon: Thermometer, alert: (record.vitals.temperature || 0) > 100 },
+                { label: "SpO₂", value: record.vitals.spo2?.toString() ?? "--", unit: "%", icon: Droplets, alert: (record.vitals.spo2 || 100) < 94 },
+                { label: "Weight", value: record.vitals.weight?.toString() ?? "--", unit: "kg", icon: User, alert: false },
+                { label: "Height", value: record.vitals.height?.toString() ?? "--", unit: "cm", icon: User, alert: false },
+                { label: "RR", value: record.vitals.respiratory_rate?.toString() ?? "--", unit: "/min", icon: Wind, alert: (record.vitals.respiratory_rate || 0) > 24 },
+                { label: "BMI", value: (record.vitals.weight && record.vitals.height) ? (record.vitals.weight / ((record.vitals.height / 100) ** 2)).toFixed(1) : "--", unit: "kg/m²", icon: Activity, alert: false },
               ].map((v) => {
                 const Icon = v.icon;
                 return (
@@ -614,37 +614,40 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
         const res = await fetch(`/api/consultations?doctor_id=${user.id}`);
         const data = await res.json();
         if (data.consultations && data.consultations.length > 0) {
-          const mapped = data.consultations.map((c: any) => ({
-            id: c.id,
-            consultation_id: c.id,
-            patient_name: c.patients?.name || 'Unknown Patient',
-            patient_age: c.patients?.dob ? new Date().getFullYear() - new Date(c.patients.dob).getFullYear() : 35,
-            patient_gender: c.patients?.gender?.[0] || 'O',
-            patient_id: c.patient_id,
-            doctor_name: user.name || 'Doctor',
-            date: c.started_at || new Date().toISOString(),
-            consultation_type: c.consultation_type || 'general',
-            status: c.status === 'completed' || c.status === 'finalized' ? 'completed' : 'in-review',
-            chief_complaint: c.chief_complaint || 'No complaint listed',
-            vitals: {
-              bp_systolic: 120, bp_diastolic: 80,
-              heart_rate: 72, temperature: 98.6,
-              spo2: 98, weight: 65, height: 165,
-              respiratory_rate: 16,
-            },
-            symptoms: [],
-            diagnosis: [],
-            icd_codes: [],
-            medications: [],
-            lab_tests_ordered: [],
-            physical_examination: 'Not recorded.',
-            clinical_summary: 'Consultation record.',
-            gap_prompts: [],
-            missing_fields: [],
-          }));
-          setRecords(mapped);
+          const mapped = data.consultations.map((c: any) => {
+            const emr = (c.emr_entries && c.emr_entries.length > 0) ? c.emr_entries[0] : null;
+            return {
+              id: c.id,
+              consultation_id: c.id,
+              patient_name: c.patients?.name || 'Unknown Patient',
+              patient_age: c.patients?.dob ? new Date().getFullYear() - new Date(c.patients.dob).getFullYear() : 35,
+              patient_gender: c.patients?.gender?.[0] || 'O',
+              patient_id: c.patient_id,
+              doctor_name: user.name || 'Doctor',
+              date: c.started_at || new Date().toISOString(),
+              consultation_type: c.consultation_type || 'general',
+              status: c.status === 'completed' || c.status === 'finalized' ? 'completed' : 'in-review',
+              chief_complaint: c.chief_complaint || emr?.chief_complaint || 'No complaint listed',
+              vitals: emr?.vitals || {
+                bp_systolic: 120, bp_diastolic: 80,
+                heart_rate: 72, temperature: 98.6,
+                spo2: 98, weight: 65, height: 165,
+                respiratory_rate: 16,
+              },
+              symptoms: emr?.symptoms || [],
+              diagnosis: emr?.diagnosis || [],
+              icd_codes: emr?.icd_codes || [],
+              medications: emr?.medications || [],
+              lab_tests_ordered: emr?.lab_tests_ordered || [],
+              physical_examination: emr?.physical_examination || 'Not recorded.',
+              clinical_summary: emr?.clinical_summary || 'Consultation record.',
+              gap_prompts: emr?.gap_prompts || [],
+              missing_fields: emr?.missing_fields || [],
+            };
+          });
+          setRecords([...mapped, ...MOCK_EMR_RECORDS]);
         } else {
-          setRecords([]);
+          setRecords(MOCK_EMR_RECORDS);
         }
       } catch (err) {
         console.error(err);
