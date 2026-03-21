@@ -1,0 +1,117 @@
+-- Seed mock patients into the patients table
+-- Run this in Supabase SQL Editor to populate initial data
+
+INSERT INTO patients (id, name, dob, gender, blood_group, allergies, chronic_conditions, abha_id, phone, address, emergency_contact, created_at)
+VALUES
+  (
+    gen_random_uuid(),
+    'Priya Sharma',
+    '1981-03-15',
+    'F',
+    'B+',
+    ARRAY['Penicillin', 'Sulfa drugs'],
+    ARRAY['Type 2 Diabetes', 'Hypertension'],
+    'ABHA-1234-5678-9012',
+    '+91 98765 43210',
+    '42, Defence Colony, New Delhi',
+    '+91 98765 43211 (Husband - Rajesh Sharma)',
+    NOW()
+  ),
+  (
+    gen_random_uuid(),
+    'Ramesh Patel',
+    '1964-07-22',
+    'M',
+    'O+',
+    ARRAY['Aspirin'],
+    ARRAY['Coronary Artery Disease', 'Hyperlipidemia'],
+    'ABHA-2345-6789-0123',
+    '+91 87654 32109',
+    '15, Jubilee Hills, Hyderabad',
+    '+91 87654 32110 (Wife - Sunita Patel)',
+    NOW()
+  ),
+  (
+    gen_random_uuid(),
+    'Anita Verma',
+    '1992-11-08',
+    'F',
+    'A+',
+    ARRAY[]::text[],
+    ARRAY['Migraine'],
+    'ABHA-3456-7890-1234',
+    '+91 76543 21098',
+    '78, Koramangala, Bangalore',
+    '+91 76543 21099 (Mother - Kanta Verma)',
+    NOW()
+  ),
+  (
+    gen_random_uuid(),
+    'Suresh Kumar',
+    '1971-01-30',
+    'M',
+    'AB+',
+    ARRAY['Ibuprofen', 'Codeine'],
+    ARRAY['Hypertension', 'Chronic Kidney Disease Stage 3'],
+    'ABHA-4567-8901-2345',
+    '+91 65432 10987',
+    '23, Salt Lake, Kolkata',
+    '+91 65432 10988 (Son - Amit Kumar)',
+    NOW()
+  ),
+  (
+    gen_random_uuid(),
+    'Meera Singh',
+    '1998-06-12',
+    'F',
+    'O-',
+    ARRAY['Latex'],
+    ARRAY[]::text[],
+    'ABHA-5678-9012-3456',
+    '+91 54321 09876',
+    '56, Bandra West, Mumbai',
+    '+91 54321 09877 (Father - Harpreet Singh)',
+    NOW()
+  ),
+  (
+    gen_random_uuid(),
+    'Vikram Malhotra',
+    '1955-04-19',
+    'M',
+    'B-',
+    ARRAY['Metformin', 'ACE Inhibitors'],
+    ARRAY['COPD', 'Atrial Fibrillation', 'Type 2 Diabetes'],
+    'ABHA-6789-0123-4567',
+    '+91 43210 98765',
+    '9, Civil Lines, Lucknow',
+    '+91 43210 98766 (Daughter - Kavita Malhotra)',
+    NOW()
+  ),
+  (
+    gen_random_uuid(),
+    'Lakshmi Iyer',
+    '1976-09-03',
+    'F',
+    'A-',
+    ARRAY['Shellfish'],
+    ARRAY['Hypothyroidism', 'Osteoarthritis'],
+    'ABHA-7890-1234-5678',
+    '+91 32109 87654',
+    '14, T Nagar, Chennai',
+    '+91 32109 87655 (Husband - Ravi Iyer)',
+    NOW()
+  ),
+  (
+    gen_random_uuid(),
+    'Arjun Reddy',
+    '1988-12-25',
+    'M',
+    'O+',
+    ARRAY[]::text[],
+    ARRAY['Asthma'],
+    'ABHA-8901-2345-6789',
+    '+91 21098 76543',
+    '31, Banjara Hills, Hyderabad',
+    '+91 21098 76544 (Wife - Divya Reddy)',
+    NOW()
+  );
