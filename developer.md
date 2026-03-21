@@ -1,7 +1,8 @@
 # NexusMD (CliniQ) — Complete Developer Guide
 
-> Last updated: 2026-03-17
+> Last updated: 2026-03-21
 > Stack: Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · Supabase · Groq · Deepgram
+> **New:** OCR Document Ingestion · Patient Timeline · Insurance Claims · Fixed PDF Download
 
 ---
 
@@ -40,25 +41,25 @@ Indian doctors currently spend 2–3 hours per day on manual documentation — w
 
 ### Problem It Solves
 
-| Problem | NexusMD Solution |
-|---|---|
-| Manual SOAP notes take 15 min per patient | AI scribe extracts EMR in real time from voice |
-| Doctors miss dangerous drug combinations | Real-time drug safety guard with clinical alternatives |
-| Generic drugs ignored (Jan Aushadhi) | Cost comparison panel — avg 70% savings |
-| Diagnosis ignores local disease season | Epidemiology engine boosts seasonal Indian diseases |
-| Patients don't understand their diagnosis | AI bot explains in plain language / Hindi |
-| No audit trail for medico-legal protection | SHA-256 tamper-evident chain on all events |
+| Problem                                    | NexusMD Solution                                       |
+| ------------------------------------------ | ------------------------------------------------------ |
+| Manual SOAP notes take 15 min per patient  | AI scribe extracts EMR in real time from voice         |
+| Doctors miss dangerous drug combinations   | Real-time drug safety guard with clinical alternatives |
+| Generic drugs ignored (Jan Aushadhi)       | Cost comparison panel — avg 70% savings                |
+| Diagnosis ignores local disease season     | Epidemiology engine boosts seasonal Indian diseases    |
+| Patients don't understand their diagnosis  | AI bot explains in plain language / Hindi              |
+| No audit trail for medico-legal protection | SHA-256 tamper-evident chain on all events             |
 
 ### Who Uses It
 
-| Role | Portal | Purpose |
-|---|---|---|
-| `doctor` | `/doctor` | Consultations, EMR, prescriptions, safety alerts |
-| `patient` | `/patient` | Appointments, prescriptions, AI chat, PDF reports |
-| `admin` | `/admin` | Analytics, user management, audit logs, settings |
-| `receptionist` | `/receptionist` | Patient queue, appointment booking |
-| `research` | `/research` | Anonymised analytics, epidemiology dashboards |
-| `nurse` | → `/doctor` | Shared access with doctor portal |
+| Role           | Portal          | Purpose                                           |
+| -------------- | --------------- | ------------------------------------------------- |
+| `doctor`       | `/doctor`       | Consultations, EMR, prescriptions, safety alerts  |
+| `patient`      | `/patient`      | Appointments, prescriptions, AI chat, PDF reports |
+| `admin`        | `/admin`        | Analytics, user management, audit logs, settings  |
+| `receptionist` | `/receptionist` | Patient queue, appointment booking                |
+| `research`     | `/research`     | Anonymised analytics, epidemiology dashboards     |
+| `nurse`        | → `/doctor`     | Shared access with doctor portal                  |
 
 ---
 
@@ -141,12 +142,12 @@ The project uses **demo auth** — no real Supabase Auth.
 
 ```typescript
 // Login: encode user as base64 JSON into cookie
-const session = Buffer.from(JSON.stringify(user)).toString('base64');
-cookies().set('nexusmd_session', session, { httpOnly: true, sameSite: 'lax' });
+const session = Buffer.from(JSON.stringify(user)).toString("base64");
+cookies().set("nexusmd_session", session, { httpOnly: true, sameSite: "lax" });
 
 // Server: decode and validate on every request
-const raw = cookies().get('nexusmd_session')?.value;
-const user = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+const raw = cookies().get("nexusmd_session")?.value;
+const user = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
 ```
 
 > **Security note:** This is sufficient for a demo/portfolio. For production, replace with JWT (`jsonwebtoken`) or real Supabase Auth, and add Row Level Security (RLS) in Supabase.
@@ -198,6 +199,11 @@ family_members
 
 queue_entries
   id · patient_id · position · status · created_at
+
+uploaded_documents  ← NEW (v2.0)
+  id · patient_id · doctor_id · file_name · file_url · file_type
+  extracted_text · ocr_confidence · structured_data(jsonb)
+  consultation_id · document_date · processing_status · uploaded_at
 ```
 
 #### Key Relationships
@@ -240,6 +246,8 @@ ConsultationStoreState {
 ---
 
 ### 2.5 End-to-End Integration Flow
+
+**Standard Consultation Flow:**
 
 ```
 1. User → http://localhost:3000
@@ -300,6 +308,89 @@ ConsultationStoreState {
     → /patient/prescriptions: view medications
     → /patient/chat: AI bot explains diagnosis
     → /patient/reports: download PDF (jsPDF)
+```
+
+**New: Document Ingestion Flow (v2.0)** 🆕
+
+```
+1. Patient logs in → /patient/reports
+         ↓
+2. Clicks "Upload Document"
+   → DocumentUploadModal opens
+         ↓
+3. Selects prescription image (JPEG/PNG)
+   → File converted to base64
+   → Preview shown
+         ↓
+4. Clicks "Upload & Extract"
+   → POST /api/documents {
+       patient_id,
+       file_name,
+       image_base64
+     }
+         ↓
+ API Processing:
+   Step 1: Groq Vision OCR
+     → Extract raw text from image
+     → Returns ~500-2000 characters
+
+   Step 2: Groq LLaMA Extraction
+     → Input: raw OCR text
+     → Output: structured JSON {
+         doctor_name, hospital, date,
+         diagnosis[], medications[], lab_tests[]
+       }
+
+   Step 3: Database Storage
+     → INSERT INTO uploaded_documents
+     → Returns document_id + structured_data
+         ↓
+6. Modal shows extraction results
+   → Medications: Metformin 500mg BD
+   → Diagnosis: Type 2 Diabetes
+   → OCR Confidence: 92%
+         ↓
+7. Timeline automatically refreshes
+   → New document appears in chronological order
+   → Expandable card shows extracted data
+```
+
+**New: Insurance Claim Flow (v2.0)** 🆕
+
+```
+1. Doctor completes consultation
+   → EMR saved, billing finalized
+         ↓
+2. Doctor/Patient clicks "Generate Insurance Claim"
+   → POST /api/insurance-claim { consultation_id }
+         ↓
+3. API fetches complete consultation data:
+   → SELECT consultations + emr_entries + prescriptions + billing
+         ↓
+4. Build context for AI:
+   → Patient: age, gender, chronic conditions
+   → Clinical: diagnosis, ICD codes, vitals, symptoms
+   → Treatment: medications, lab tests, procedures
+   → Billing: itemized costs
+         ↓
+5. Groq AI generates claim:
+   → Prompt: IRDA-compliant insurance claim generator
+   → Returns structured claim with:
+       - Clinical summary
+       - Treatment details
+       - Cost breakdown by category
+       - Justification paragraph
+       - Required supporting documents list
+         ↓
+6. Frontend receives claim data
+   → Calls generateInsuranceClaimPDF(claim)
+   → Opens new window with styled HTML form
+         ↓
+7. User can:
+   → Print immediately
+   → Save as PDF
+   → Fill in policy number fields
+   → Attach to insurance submission
 ```
 
 ---
@@ -402,7 +493,10 @@ CliniQ-main/
     │       ├── consent/route.ts
     │       ├── family/route.ts
     │       ├── queue/route.ts
-    │       ├── prescription-scan/route.ts  ← OCR (stub)
+    │       ├── prescription-scan/route.ts  ← OCR (Vision AI)
+    │       ├── documents/route.ts          ← 🆕 Document ingestion
+    │       ├── timeline/route.ts           ← 🆕 Timeline API    │       ├── generate-report/route.ts    ← 🆕 PDF reports
+    │       ├── insurance-claim/route.ts    ← 🆕 Insurance claims
     │       └── seed/route.ts               ← Seed demo data
     │
     ├── components/
@@ -451,7 +545,9 @@ CliniQ-main/
     │   │   ├── AppSidebar.tsx             ← Animated role-aware sidebar
     │   │   ├── DashboardShell.tsx         ← Layout wrapper with sidebar
     │   │   ├── RuralModeIndicator.tsx     ← Low-bandwidth mode badge
-    │   │   └── VisionAnonymizer.tsx       ← Data anonymisation toggle
+    │   │   ├── VisionAnonymizer.tsx       ← Data anonymisation toggle
+    │   │   ├── PatientTimeline.tsx        ← 🆕 Unified medical timeline
+    │   │   └── DocumentUploadModal.tsx    ← 🆕 Document upload with OCR
     │   │
     │   └── ui/                            ← Radix UI primitives
     │       ├── avatar.tsx
@@ -481,7 +577,8 @@ CliniQ-main/
     │   ├── triage.ts              ← AI triage scoring
     │   ├── jan-aushadhi.ts        ← Generic drug cost data
     │   ├── report-generator.ts    ← jsPDF report builder
-    │   └── offline-queue.ts       ← Offline action queue
+    │   ├── offline-queue.ts       ← Offline action queue
+    │   └── insurance-claim-generator.ts  ← 🆕 Insurance PDF generator
     │
     ├── store/
     │   └── consultationStore.ts   ← Zustand: full consultation state
@@ -495,15 +592,15 @@ CliniQ-main/
 
 ### Requirements
 
-| Requirement | Version | Notes |
-|---|---|---|
-| **Node.js** | 20+ | Check: `node -v` |
-| **npm** | 10+ | Included with Node 20 |
-| **Git** | Any | For cloning |
-| **VS Code** | Latest | Recommended editor |
-| **Supabase account** | Free | Database |
-| **Groq account** | Free | AI/LLM (14,400 tokens/min free) |
-| **Deepgram account** | Free | Speech-to-text ($200 free credit) |
+| Requirement          | Version | Notes                             |
+| -------------------- | ------- | --------------------------------- |
+| **Node.js**          | 20+     | Check: `node -v`                  |
+| **npm**              | 10+     | Included with Node 20             |
+| **Git**              | Any     | For cloning                       |
+| **VS Code**          | Latest  | Recommended editor                |
+| **Supabase account** | Free    | Database                          |
+| **Groq account**     | Free    | AI/LLM (14,400 tokens/min free)   |
+| **Deepgram account** | Free    | Speech-to-text ($200 free credit) |
 
 ### Install Node.js 20 (if needed)
 
@@ -562,13 +659,13 @@ DEEPGRAM_API_KEY=...
 
 ### Current Status of Your Keys
 
-| Variable | Status | Action Needed |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Set | Run migrations (see Section 7) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Set | Run migrations (see Section 7) |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Missing** | Get from Supabase dashboard |
-| `GROQ_API_KEY` | Set | Ready |
-| `DEEPGRAM_API_KEY` | Set | Ready |
+| Variable                        | Status      | Action Needed                  |
+| ------------------------------- | ----------- | ------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Set         | Run migrations (see Section 7) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Set         | Run migrations (see Section 7) |
+| `SUPABASE_SERVICE_ROLE_KEY`     | **Missing** | Get from Supabase dashboard    |
+| `GROQ_API_KEY`                  | Set         | Ready                          |
+| `DEEPGRAM_API_KEY`              | Set         | Ready                          |
 
 > `SUPABASE_SERVICE_ROLE_KEY` is used by admin API routes. Without it, `/api/admin/users` and `/api/seed` will fail.
 
@@ -579,6 +676,7 @@ DEEPGRAM_API_KEY=...
 ### Groq — AI / LLM
 
 **What it powers:**
+
 - EMR extraction from live transcripts (ICD-10, vitals, medications, symptoms)
 - Differential diagnosis with epidemiological weighting
 - Patient summary in plain language
@@ -587,6 +685,7 @@ DEEPGRAM_API_KEY=...
 **Model:** `llama-3.3-70b-versatile`
 
 **How to get your key:**
+
 1. Go to [console.groq.com](https://console.groq.com)
 2. Sign up → API Keys → Create New Key
 3. Copy the key starting with `gsk_...`
@@ -600,11 +699,13 @@ DEEPGRAM_API_KEY=...
 ### Deepgram — Real-time Speech-to-Text
 
 **What it powers:**
+
 - `useMedicalScribe` hook: live doctor-patient conversation transcription
 - WebSocket streaming to Deepgram Nova-2 Medical model
 - Language detection (English/Hindi/Hinglish)
 
 **How to get your key:**
+
 1. Go to [console.deepgram.com](https://deepgram.com)
 2. Sign up → API Keys → Create API Key (name: NexusMD)
 3. Copy the key
@@ -613,6 +714,7 @@ DEEPGRAM_API_KEY=...
 **Free tier:** $200 credit (~55 hours of audio transcription)
 
 **How it works in code:**
+
 ```
 POST /api/transcribe
   → Requests 30s short-lived token from Deepgram
@@ -626,11 +728,13 @@ POST /api/transcribe
 ### Supabase — PostgreSQL Database
 
 **What it powers:**
+
 - All persistent data: patients, consultations, EMR, prescriptions, billing
 - Server-side auth via cookies (using `@supabase/ssr`)
 - Audit logs with SHA-256 chain
 
 **How to get your keys:**
+
 1. Go to [supabase.com](https://supabase.com) → New Project
 2. Choose a region (select `ap-south-1` for India)
 3. Go to Settings → API
@@ -656,6 +760,7 @@ Step 2: supabase/migrations/002_family_members.sql   ← Family graph
 Step 3: supabase/migrations/002_supplementary.sql    ← Extra tables
 Step 4: supabase/migrations/003_seed_data.sql        ← Demo data
 Step 5: supabase/migrations/004_receptionist.sql     ← Queue tables
+Step 6: supabase/migrations/005_uploaded_documents.sql  ← 🆕 Document ingestion
 ```
 
 ### Option B: Seed API Endpoint
@@ -706,12 +811,12 @@ npm run lint     # ESLint check
 
 ### Ports
 
-| Service | Port | Notes |
-|---|---|---|
-| Next.js (frontend + API) | **3000** | Main app |
-| Supabase | Cloud only | No local port |
-| Groq API | Cloud only | No local port |
-| Deepgram | Cloud only | WebSocket via browser |
+| Service                  | Port       | Notes                 |
+| ------------------------ | ---------- | --------------------- |
+| Next.js (frontend + API) | **3000**   | Main app              |
+| Supabase                 | Cloud only | No local port         |
+| Groq API                 | Cloud only | No local port         |
+| Deepgram                 | Cloud only | WebSocket via browser |
 
 ---
 
@@ -719,11 +824,11 @@ npm run lint     # ESLint check
 
 All demo accounts use the same password. One-click login buttons are available on the login page.
 
-| Role | Email | Password | Dashboard |
-|---|---|---|---|
-| Doctor | demo.doctor@nexusmd.app | demo123456 | /doctor |
-| Patient | demo.patient@nexusmd.app | demo123456 | /patient |
-| Admin | demo.admin@nexusmd.app | demo123456 | /admin |
+| Role         | Email                      | Password   | Dashboard     |
+| ------------ | -------------------------- | ---------- | ------------- |
+| Doctor       | demo.doctor@nexusmd.app    | demo123456 | /doctor       |
+| Patient      | demo.patient@nexusmd.app   | demo123456 | /patient      |
+| Admin        | demo.admin@nexusmd.app     | demo123456 | /admin        |
 | Receptionist | demo.reception@nexusmd.app | demo123456 | /receptionist |
 
 > Research role is accessible via the Supabase seed data.
@@ -734,59 +839,68 @@ All demo accounts use the same password. One-click login buttons are available o
 
 ### Auth
 
-| Method | Route | Body | Returns |
-|---|---|---|---|
-| POST | `/api/auth/login` | `{ email, password }` | `{ ok, user }` + sets cookie |
-| POST | `/api/auth/logout` | — | Clears cookie |
+| Method | Route              | Body                  | Returns                      |
+| ------ | ------------------ | --------------------- | ---------------------------- |
+| POST   | `/api/auth/login`  | `{ email, password }` | `{ ok, user }` + sets cookie |
+| POST   | `/api/auth/logout` | —                     | Clears cookie                |
 
 ### AI / Core
 
-| Method | Route | Body | Returns |
-|---|---|---|---|
-| POST | `/api/extract` | `{ transcript, consultationId, location? }` | `{ emr, differentials, epidemiology }` |
-| POST | `/api/transcribe` | — | `{ token }` (Deepgram 30s token) |
-| POST | `/api/patient-bot` | `{ message, history[] }` | `{ reply }` |
-| POST | `/api/patient-summary` | `{ consultationId }` | `{ summary }` |
-| POST | `/api/safety/live` | `{ meds[], allergies[] }` | `{ alerts[] }` |
-| GET | `/api/safety` | — | All safety alerts |
+| Method | Route                  | Body                                        | Returns                                |
+| ------ | ---------------------- | ------------------------------------------- | -------------------------------------- |
+| POST   | `/api/extract`         | `{ transcript, consultationId, location? }` | `{ emr, differentials, epidemiology }` |
+| POST   | `/api/transcribe`      | —                                           | `{ token }` (Deepgram 30s token)       |
+| POST   | `/api/patient-bot`     | `{ message, history[] }`                    | `{ reply }`                            |
+| POST   | `/api/patient-summary` | `{ consultationId }`                        | `{ summary }`                          |
+| POST   | `/api/safety/live`     | `{ meds[], allergies[] }`                   | `{ alerts[] }`                         |
+| GET    | `/api/safety`          | —                                           | All safety alerts                      |
 
 ### Patients
 
-| Method | Route | Description |
-|---|---|---|
-| GET/POST | `/api/patients` | List all / create patient |
-| GET/PATCH | `/api/patients/[id]/profile` | Get or update patient profile |
-| GET | `/api/patients/[id]/consultations` | Patient consultation history |
-| GET | `/api/patients/[id]/appointments` | Patient appointments |
-| GET | `/api/patients/[id]/prescriptions` | Patient prescriptions |
+| Method    | Route                              | Description                   |
+| --------- | ---------------------------------- | ----------------------------- |
+| GET/POST  | `/api/patients`                    | List all / create patient     |
+| GET/PATCH | `/api/patients/[id]/profile`       | Get or update patient profile |
+| GET       | `/api/patients/[id]/consultations` | Patient consultation history  |
+| GET       | `/api/patients/[id]/appointments`  | Patient appointments          |
+| GET       | `/api/patients/[id]/prescriptions` | Patient prescriptions         |
 
 ### Consultations
 
-| Method | Route | Description |
-|---|---|---|
-| GET/POST | `/api/consultations` | List / create consultation |
-| GET/PUT | `/api/consultations/[id]/emr` | Get or update EMR entry |
-| GET/POST | `/api/consultations/[id]/billing` | Get or create billing draft |
+| Method   | Route                                   | Description                    |
+| -------- | --------------------------------------- | ------------------------------ |
+| GET/POST | `/api/consultations`                    | List / create consultation     |
+| GET/PUT  | `/api/consultations/[id]/emr`           | Get or update EMR entry        |
+| GET/POST | `/api/consultations/[id]/billing`       | Get or create billing draft    |
 | GET/POST | `/api/consultations/[id]/prescriptions` | Prescriptions for consultation |
 
 ### Admin
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/api/admin/analytics` | System-wide analytics data |
-| GET/PATCH | `/api/admin/users` | User management |
-| GET | `/api/admin/consultations` | All consultations |
+| Method    | Route                      | Description                |
+| --------- | -------------------------- | -------------------------- |
+| GET       | `/api/admin/analytics`     | System-wide analytics data |
+| GET/PATCH | `/api/admin/users`         | User management            |
+| GET       | `/api/admin/consultations` | All consultations          |
 
 ### Misc
 
-| Method | Route | Description |
-|---|---|---|
-| GET/POST | `/api/audit` | Audit log |
-| POST | `/api/consent` | Record patient consent |
-| GET/POST | `/api/family` | Family member records |
-| GET/POST | `/api/queue` | Reception queue |
-| POST | `/api/prescription-scan` | OCR scan (stub — not yet implemented) |
-| POST | `/api/seed` | Seed Supabase with demo data |
+| Method   | Route                    | Description                  |
+| -------- | ------------------------ | ---------------------------- |
+| GET/POST | `/api/audit`             | Audit log                    |
+| POST     | `/api/consent`           | Record patient consent       |
+| GET/POST | `/api/family`            | Family member records        |
+| GET/POST | `/api/queue`             | Reception queue              |
+| POST     | `/api/prescription-scan` | OCR scan (Vision AI)         |
+| POST     | `/api/seed`              | Seed Supabase with demo data |
+
+### **New Features (v2.0)** 🆕
+
+| Method   | Route                  | Description                                          |
+| -------- | ---------------------- | ---------------------------------------------------- |
+| GET/POST | `/api/documents`       | Upload & retrieve medical documents with OCR         |
+| GET      | `/api/timeline`        | Unified patient timeline (consultations + documents) |
+| POST     | `/api/generate-report` | Generate printable HTML medical report               |
+| POST     | `/api/insurance-claim` | AI-generated insurance claim (IRDA compliant)        |
 
 ---
 
@@ -860,6 +974,7 @@ Login → /receptionist
 ### Existing Features (Implemented)
 
 **AI / Clinical Intelligence**
+
 - Real-time medical scribe (Deepgram WebSocket + Nova-2 Medical model)
 - Groq LLaMA EMR extraction (ICD-10-CM, vitals, symptoms, medications, lab orders)
 - Parallel differential diagnosis with confidence percentages
@@ -869,6 +984,7 @@ Login → /receptionist
 - Patient summary generator
 
 **Safety & Compliance**
+
 - Drug-drug interaction checker (13 interaction pairs)
 - Allergy contraindication checker (8 allergy categories)
 - Clinical alternative suggestions on alert
@@ -880,6 +996,7 @@ Login → /receptionist
 - SHA-256 tamper-evident audit chain
 
 **Operations**
+
 - Multi-role authentication (6 roles)
 - Reception queue management with position tracking
 - Appointment scheduling
@@ -890,35 +1007,48 @@ Login → /receptionist
 - Triage scoring panel
 
 **Patient Portal**
+
 - Appointment viewer
 - Prescription browser
 - PDF report download (jsPDF)
 - AI health chatbot
 
 **Analytics**
+
 - Admin analytics dashboard (Recharts)
 - Research portal with anonymised data
 - Epidemiology-adjusted differentials
 
 **Infrastructure**
+
 - Offline sync queue (for low-connectivity rural settings)
 - Rural mode indicator
 - Vision anonymiser (hides PII for screen-sharing)
+
+**New Features (v2.0)** 🆕
+
+- **OCR Document Ingestion** — Upload prescriptions/reports, extract structured data via Groq Vision
+- **Patient Medical Timeline** — Unified chronological view of consultations + uploaded documents
+- **Insurance Claim Generator** — AI-powered IRDA-compliant claim forms with cost breakdown
+- **Fixed PDF Reports** — Working medical report generation with printable HTML
 
 ---
 
 ### Missing / Stub Features
 
-| Feature | Status | Location |
-|---|---|---|
-| Prescription OCR scan | Stub — returns mock | `/api/prescription-scan/route.ts` |
-| Real-time Supabase updates | Polling-only, no Realtime | Could use `supabase.channel()` |
-| Email notifications | Not implemented | Needs Resend/Nodemailer |
-| SMS/WhatsApp for patients | Not implemented | Needs MSG91/Twilio |
-| Real ABDM API integration | ABHA stored, not verified | NHA Sandbox API needed |
-| Video teleconsultation | Not implemented | Needs WebRTC/Daily.co |
-| Unit/integration tests | Zero test files | Needs Vitest + Playwright |
-| Hindi transcription | Deepgram supports it | Just pass `language=hi` |
+| Feature                    | Status                    | Location                        |
+| -------------------------- | ------------------------- | ------------------------------- |
+| Prescription OCR scan      | ✅ **Implemented (v2.0)** | `/api/documents/route.ts`       |
+| Patient Timeline           | ✅ **Implemented (v2.0)** | `/api/timeline/route.ts`        |
+| Insurance Claim Gen        | ✅ **Implemented (v2.0)** | `/api/insurance-claim/route.ts` |
+| PDF Report Download        | ✅ **Fixed (v2.0)**       | `/api/generate-report/route.ts` |
+| Real-time Supabase updates | Polling-only, no Realtime | Could use `supabase.channel()`  |
+| Email notifications        | Not implemented           | Needs Resend/Nodemailer         |
+| SMS/WhatsApp for patients  | Not implemented           | Needs MSG91/Twilio              |
+| Real ABDM API integration  | ABHA stored, not verified | NHA Sandbox API needed          |
+| Video teleconsultation     | Not implemented           | Needs WebRTC/Daily.co           |
+| Unit/integration tests     | Zero test files           | Needs Vitest + Playwright       |
+| Hindi transcription        | Deepgram supports it      | Just pass `language=hi`         |
 
 ---
 
@@ -937,6 +1067,7 @@ Login → /receptionist
 **Symptom:** Recording starts but no transcript appears
 
 **Fix:** Check browser console for WebSocket errors. Verify:
+
 ```bash
 # Test your Deepgram key
 curl -X GET "https://api.deepgram.com/v1/auth/token" \
@@ -950,6 +1081,7 @@ curl -X GET "https://api.deepgram.com/v1/auth/token" \
 **Symptom:** AI extraction fires but EMR panels stay empty
 
 **Fix 1:** Verify Groq key is valid:
+
 ```bash
 node test_extract.js
 ```
@@ -975,8 +1107,9 @@ node test_extract.js
 **Cause:** `ThemeProvider` from `next-themes` is installed but may not be wrapping the app root
 
 **Fix:** Wrap `src/app/layout.tsx` body with `<ThemeProvider attribute="class">`:
+
 ```tsx
-import { ThemeProvider } from 'next-themes';
+import { ThemeProvider } from "next-themes";
 
 export default function RootLayout({ children }) {
   return (
@@ -1098,4 +1231,4 @@ export default function RootLayout({ children }) {
 
 ---
 
-*Built with Next.js 16 · Groq llama-3.3-70b-versatile · Deepgram Nova-2 Medical · Supabase · Tailwind CSS v4*
+_Built with Next.js 16 · Groq llama-3.3-70b-versatile · Deepgram Nova-2 Medical · Supabase · Tailwind CSS v4_

@@ -12,7 +12,7 @@ export interface DemoUser {
 export const DEMO_USERS: Array<DemoUser & { password: string }> = [
   {
     id: "demo-doctor-001",
-    email: "demo.doctor@nexusmd.app",
+    email: "demo.doctor@cliniq.app",
     password: "demo123456",
     name: "Dr. Arjun Sharma",
     role: "doctor",
@@ -20,21 +20,21 @@ export const DEMO_USERS: Array<DemoUser & { password: string }> = [
   },
   {
     id: "demo-patient-001",
-    email: "demo.patient@nexusmd.app",
+    email: "demo.patient@cliniq.app",
     password: "demo123456",
     name: "Priya Sharma",
     role: "patient",
   },
   {
     id: "demo-admin-001",
-    email: "demo.admin@nexusmd.app",
+    email: "demo.admin@cliniq.app",
     password: "demo123456",
     name: "Admin User",
     role: "admin",
   },
   {
     id: "demo-nurse-001",
-    email: "demo.nurse@nexusmd.app",
+    email: "demo.nurse@cliniq.app",
     password: "demo123456",
     name: "Nurse Kavita",
     role: "nurse",
@@ -42,7 +42,7 @@ export const DEMO_USERS: Array<DemoUser & { password: string }> = [
   },
   {
     id: "demo-research-001",
-    email: "demo.research@nexusmd.app",
+    email: "demo.research@cliniq.app",
     password: "demo123456",
     name: "Dr. Meera Nair",
     role: "research",
@@ -50,7 +50,7 @@ export const DEMO_USERS: Array<DemoUser & { password: string }> = [
   },
   {
     id: "demo-receptionist-001",
-    email: "demo.reception@nexusmd.app",
+    email: "demo.reception@cliniq.app",
     password: "demo123456",
     name: "Kavita (Receptionist)",
     role: "receptionist",
@@ -58,7 +58,7 @@ export const DEMO_USERS: Array<DemoUser & { password: string }> = [
   },
 ];
 
-export const SESSION_COOKIE = "nexusmd_session";
+export const SESSION_COOKIE = "cliniq_session";
 
 export function findUser(email: string, password: string): DemoUser | null {
   const found = DEMO_USERS.find(
