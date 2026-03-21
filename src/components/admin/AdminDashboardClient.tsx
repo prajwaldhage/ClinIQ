@@ -30,14 +30,14 @@ const MOCK_RECENT_ALERTS = [
 
 export function AdminDashboardClient({ user }: AdminDashboardClientProps) {
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto bg-[var(--bg)] min-h-screen">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-bold text-[var(--foreground)]">Admin Overview</h1>
-          <p className="text-sm text-[var(--foreground-muted)] mt-0.5">System health, user activity, and compliance</p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Admin Overview</h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">System health, user activity, and compliance</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Settings className="w-3.5 h-3.5" />
+        <Button variant="outline" size="sm" className="gap-1.5 rounded-xl border-[var(--border)] hover:bg-[var(--surface-elevated)]">
+          <Settings className="w-4 h-4" />
           Settings
         </Button>
       </div>
@@ -45,24 +45,24 @@ export function AdminDashboardClient({ user }: AdminDashboardClientProps) {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Consultations", value: "1,247", icon: Activity, color: "text-blue-400", bg: "bg-blue-500/10", delta: "+23 today" },
-          { label: "Active Doctors", value: "18", icon: Users, color: "text-green-400", bg: "bg-green-500/10", delta: "12 online now" },
-          { label: "Safety Alerts Today", value: "7", icon: Shield, color: "text-red-400", bg: "bg-red-500/10", delta: "3 unresolved" },
-          { label: "Audit Events", value: "3,891", icon: Database, color: "text-purple-400", bg: "bg-purple-500/10", delta: "Chain intact ✓" },
+          { label: "Total Consultations", value: "1,247", icon: Activity, color: "text-[#4A90E2]", bg: "bg-[#4A90E2]/10", delta: "+23 today" },
+          { label: "Active Doctors", value: "18", icon: Users, color: "text-[#10B981]", bg: "bg-[#10B981]/10", delta: "12 online now" },
+          { label: "Safety Alerts Today", value: "7", icon: Shield, color: "text-[#EF4444]", bg: "bg-[#EF4444]/10", delta: "3 unresolved" },
+          { label: "Audit Events", value: "3,891", icon: Database, color: "text-[#8B5CF6]", bg: "bg-[#8B5CF6]/10", delta: "Chain intact ✓" },
         ].map((stat, i) => {
           const Icon = stat.icon;
           return (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <Card>
-                <CardContent className="p-4">
+              <Card className="bg-[var(--surface)] border-[var(--border)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" style={{ borderRadius: "var(--radius)" }}>
+                <CardContent className="p-5">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-xs text-[var(--foreground-subtle)]">{stat.label}</p>
-                      <p className="text-2xl font-bold text-[var(--foreground)] mt-0.5">{stat.value}</p>
-                      <p className="text-[10px] text-[var(--foreground-subtle)] mt-1">{stat.delta}</p>
+                      <p className="text-xs text-[var(--text-secondary)]">{stat.label}</p>
+                      <p className="text-2xl font-bold text-[var(--text-primary)] mt-1">{stat.value}</p>
+                      <p className="text-[10px] text-[var(--text-secondary)] mt-1">{stat.delta}</p>
                     </div>
-                    <div className={`flex items-center justify-center w-9 h-9 rounded-lg ${stat.bg}`}>
-                      <Icon className={`w-4 h-4 ${stat.color}`} />
+                    <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${stat.bg}`}>
+                      <Icon className={`w-5 h-5 ${stat.color}`} />
                     </div>
                   </div>
                 </CardContent>
@@ -74,50 +74,56 @@ export function AdminDashboardClient({ user }: AdminDashboardClientProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* System health */}
-        <Card>
+        <Card className="bg-[var(--surface)] border-[var(--border)]" style={{ borderRadius: "var(--radius)" }}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-blue-400" />
+            <CardTitle className="flex items-center gap-2 text-[var(--text-primary)]">
+              <div className="w-8 h-8 rounded-lg bg-[#4A90E2]/10 flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-[#4A90E2]" />
+              </div>
               System Health
-              <Badge variant="success" className="ml-auto text-[9px]">All Operational</Badge>
+              <Badge className="ml-auto text-[9px] bg-[#10B981]/10 text-[#10B981] border-0">All Operational</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {MOCK_SYSTEM_HEALTH.map((service, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-400 shrink-0" />
-                <span className="text-xs text-[var(--foreground)] flex-1">{service.label}</span>
-                <span className="text-[10px] text-[var(--foreground-subtle)]">{service.uptime}% uptime</span>
-                <Progress value={service.uptime} className="w-16 h-1" indicatorClassName="bg-green-500" />
+              <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--surface-elevated)] transition-colors">
+                <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
+                <span className="text-sm text-[var(--text-primary)] flex-1">{service.label}</span>
+                <span className="text-xs text-[var(--text-secondary)]">{service.uptime}% uptime</span>
+                <Progress value={service.uptime} className="w-16 h-1.5 bg-[var(--border)]" indicatorClassName="bg-[#10B981]" />
               </div>
             ))}
           </CardContent>
         </Card>
 
         {/* Recent safety alerts */}
-        <Card>
+        <Card className="bg-[var(--surface)] border-[var(--border)]" style={{ borderRadius: "var(--radius)" }}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-400" />
+            <CardTitle className="flex items-center gap-2 text-[var(--text-primary)]">
+              <div className="w-8 h-8 rounded-lg bg-[#EF4444]/10 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-[#EF4444]" />
+              </div>
               Recent Safety Alerts
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {MOCK_RECENT_ALERTS.map((alert, i) => (
-              <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-[var(--surface-elevated)]">
-                <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${
-                  alert.severity === "critical" ? "text-red-400" :
-                  alert.severity === "high" ? "text-orange-400" : "text-amber-400"
+              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-elevated)]">
+                <AlertTriangle className={`w-4 h-4 shrink-0 ${
+                  alert.severity === "critical" ? "text-[#EF4444]" :
+                  alert.severity === "high" ? "text-[#F59E0B]" : "text-[#F59E0B]"
                 }`} />
                 <div className="flex-1">
-                  <p className="text-xs font-medium text-[var(--foreground)]">{alert.patient}</p>
-                  <p className="text-[10px] text-[var(--foreground-subtle)] capitalize">{alert.type.replace("_", " ")}</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{alert.patient}</p>
+                  <p className="text-xs text-[var(--text-secondary)] capitalize">{alert.type.replace("_", " ")}</p>
                 </div>
                 <div className="text-right">
-                  <Badge variant={alert.severity === "critical" ? "critical" : "warning"} className="text-[9px]">
+                  <Badge className={`text-[9px] border-0 ${
+                    alert.severity === "critical" ? "bg-[#EF4444]/10 text-[#EF4444]" : "bg-[#F59E0B]/10 text-[#F59E0B]"
+                  }`}>
                     {alert.severity}
                   </Badge>
-                  <p className="text-[10px] text-[var(--foreground-subtle)] mt-0.5">{alert.time}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">{alert.time}</p>
                 </div>
               </div>
             ))}
@@ -125,36 +131,40 @@ export function AdminDashboardClient({ user }: AdminDashboardClientProps) {
         </Card>
 
         {/* Compliance metrics */}
-        <Card>
+        <Card className="bg-[var(--surface)] border-[var(--border)]" style={{ borderRadius: "var(--radius)" }}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-green-400" />
+            <CardTitle className="flex items-center gap-2 text-[var(--text-primary)]">
+              <div className="w-8 h-8 rounded-lg bg-[#10B981]/10 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-[#10B981]" />
+              </div>
               Compliance Metrics
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {[
-              { label: "ABDM Compliance", value: 100, color: "bg-green-500" },
-              { label: "ICD-10 Auto-coding Rate", value: 98, color: "bg-blue-500" },
-              { label: "Consent Capture Rate", value: 94, color: "bg-purple-500" },
-              { label: "Audit Chain Integrity", value: 100, color: "bg-green-500" },
+              { label: "ABDM Compliance", value: 100, color: "bg-[#10B981]" },
+              { label: "ICD-10 Auto-coding Rate", value: 98, color: "bg-[#4A90E2]" },
+              { label: "Consent Capture Rate", value: 94, color: "bg-[#8B5CF6]" },
+              { label: "Audit Chain Integrity", value: 100, color: "bg-[#10B981]" },
             ].map((m, i) => (
-              <div key={i} className="space-y-1">
+              <div key={i} className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-xs text-[var(--foreground-muted)]">{m.label}</span>
-                  <span className="text-xs font-semibold text-[var(--foreground)]">{m.value}%</span>
+                  <span className="text-sm text-[var(--text-secondary)]">{m.label}</span>
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">{m.value}%</span>
                 </div>
-                <Progress value={m.value} className="h-1.5" indicatorClassName={m.color} />
+                <Progress value={m.value} className="h-2 bg-[var(--border)]" indicatorClassName={m.color} />
               </div>
             ))}
           </CardContent>
         </Card>
 
         {/* Recent doctor activity */}
-        <Card>
+        <Card className="bg-[var(--surface)] border-[var(--border)]" style={{ borderRadius: "var(--radius)" }}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[var(--foreground-subtle)]" />
+            <CardTitle className="flex items-center gap-2 text-[var(--text-primary)]">
+              <div className="w-8 h-8 rounded-lg bg-[var(--text-secondary)]/10 flex items-center justify-center">
+                <Clock className="w-4 h-4 text-[var(--text-secondary)]" />
+              </div>
               Recent Activity
             </CardTitle>
           </CardHeader>
@@ -166,12 +176,12 @@ export function AdminDashboardClient({ user }: AdminDashboardClientProps) {
               { event: "Patient summary sent via WhatsApp", actor: "System", time: "15m ago" },
               { event: "Consent recorded for P. Kumar", actor: "Dr. Sharma", time: "22m ago" },
             ].map((event, i) => (
-              <div key={i} className="flex items-center gap-3 py-1.5 border-b border-[var(--border-subtle)] last:border-0">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
-                <p className="text-xs text-[var(--foreground-muted)] flex-1">{event.event}</p>
+              <div key={i} className="flex items-center gap-3 py-2 border-b border-[var(--border)] last:border-0">
+                <div className="w-2 h-2 rounded-full bg-[#4A90E2] shrink-0" />
+                <p className="text-sm text-[var(--text-secondary)] flex-1">{event.event}</p>
                 <div className="text-right shrink-0">
-                  <p className="text-[10px] text-[var(--foreground-subtle)]">{event.actor}</p>
-                  <p className="text-[10px] text-[var(--foreground-subtle)]">{event.time}</p>
+                  <p className="text-xs text-[var(--text-primary)]">{event.actor}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)]">{event.time}</p>
                 </div>
               </div>
             ))}

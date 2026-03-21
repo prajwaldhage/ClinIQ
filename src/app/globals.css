@@ -6,40 +6,133 @@
 @source not "**/prn";
 
 :root {
-  /* NexusMD Clinical Dark Theme */
-  --background: #0a0f1e;
-  --background-secondary: #0d1526;
-  --surface: #111827;
-  --surface-elevated: #1a2540;
-  --border: #1e2d4a;
-  --border-subtle: #162035;
+  /* ===== ClinIQ Light Mode Design System ===== */
 
-  --foreground: #e2e8f0;
-  --foreground-muted: #94a3b8;
-  --foreground-subtle: #64748b;
+  /* Backgrounds */
+  --bg: #F8FAFC;
+  --background: #F8FAFC;
+  --background-secondary: #F1F5F9;
 
-  /* Brand */
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
+  /* Surfaces */
+  --surface: #FFFFFF;
+  --surface-elevated: #FFFFFF;
+
+  /* Borders */
+  --border: #E2E8F0;
+  --border-subtle: #F1F5F9;
+
+  /* Text Colors */
+  --text-primary: #1E293B;
+  --text-secondary: #64748B;
+  --foreground: #1E293B;
+  --foreground-muted: #64748B;
+  --foreground-subtle: #94A3B8;
+
+  /* Brand Colors - ClinIQ */
+  --primary: #4A90E2;
+  --primary-hover: #3B7AC7;
   --primary-foreground: #ffffff;
+  --accent: #3CC2C2;
+  --accent-hover: #2DA9A9;
 
   /* Clinical Status */
-  --safe: #16a34a;
+  --success: #10B981;
+  --safe: #10B981;
+  --safe-bg: #D1FAE5;
+  --warning: #F59E0B;
+  --warning-bg: #FEF3C7;
+  --danger: #EF4444;
+  --critical: #EF4444;
+  --critical-bg: #FEE2E2;
+  --info: #4A90E2;
+  --info-bg: #DBEAFE;
+
+  /* Recording */
+  --recording: #ef4444;
+
+  /* Header & Sidebar */
+  --header: #FFFFFF;
+  --header-border: #E2E8F0;
+  --sidebar: #FFFFFF;
+  --sidebar-bg: #FFFFFF;
+  --sidebar-border: #E2E8F0;
+  --sidebar-width: 256px;
+
+  /* Design System */
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+
+  /* Shadows - Subtle for light mode */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dark {
+  /* ===== ClinIQ Dark Mode Design System ===== */
+
+  /* Backgrounds */
+  --bg: #0F172A;
+  --background: #0F172A;
+  --background-secondary: #1E293B;
+
+  /* Surfaces */
+  --surface: #1E293B;
+  --surface-elevated: #334155;
+
+  /* Borders */
+  --border: #334155;
+  --border-subtle: #1E293B;
+
+  /* Text Colors */
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --foreground: #F1F5F9;
+  --foreground-muted: #94A3B8;
+  --foreground-subtle: #64748B;
+
+  /* Brand Colors - ClinIQ */
+  --primary: #4A90E2;
+  --primary-hover: #3B7AC7;
+  --primary-foreground: #ffffff;
+  --accent: #3CC2C2;
+  --accent-hover: #2DA9A9;
+
+  /* Clinical Status */
+  --success: #10B981;
+  --safe: #10B981;
   --safe-bg: #052e16;
-  --warning: #d97706;
+  --warning: #F59E0B;
   --warning-bg: #1c0f00;
-  --critical: #dc2626;
+  --danger: #EF4444;
+  --critical: #EF4444;
   --critical-bg: #240808;
-  --info: #0ea5e9;
+  --info: #3B82F6;
   --info-bg: #0c1a2e;
 
   /* Recording */
   --recording: #ef4444;
 
-  /* Sidebar */
+  /* Header & Sidebar */
+  --header: #020617;
+  --header-border: #1E293B;
+  --sidebar: #020617;
+  --sidebar-bg: #020617;
+  --sidebar-border: #1E293B;
   --sidebar-width: 256px;
-  --sidebar-bg: #070c18;
-  --sidebar-border: #0f1c32;
+
+  /* Design System */
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+
+  /* Shadows - Stronger for dark mode */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
 }
 
 @theme inline {

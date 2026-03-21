@@ -144,22 +144,60 @@ export function PatientReportsClient({ user }: PatientReportsClientProps) {
             c.chief_complaint.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const handleDownloadReport = async (consultationId: string) => {
+        try {
+            // Open the PDF generation API endpoint in a new window
+            // The API returns an HTML page that can be printed/saved as PDF
+            window.open(
+                `/api/generate-report`,
+                "_blank",
+                "width=1000,height=800"
+            );
+
+            // Make POST request to generate the report
+            const response = await fetch("/api/generate-report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ consultation_id: consultationId }),
+            });
+
+            if (!response.ok) {
+                console.error("Failed to generate report");
+                return;
+            }
+
+            // Get HTML content
+            const html = await response.text();
+
+            // Open in new window
+            const reportWindow = window.open("", "_blank");
+            if (reportWindow) {
+                reportWindow.document.write(html);
+                reportWindow.document.close();
+            }
+        } catch (error) {
+            console.error("Error generating report:", error);
+        }
+    };
+
     return (
-        <div className="p-6 space-y-6 max-w-5xl mx-auto">
+        <div className="p-6 space-y-6 max-w-5xl mx-auto bg-[var(--bg)] min-h-screen">
             {/* Header */}
             <div>
-                <h1 className="text-xl font-bold text-[var(--foreground)]">My Reports</h1>
-                <p className="text-sm text-[var(--foreground-muted)] mt-0.5">
+                <h1 className="text-2xl font-bold text-[var(--text-primary)]">My Reports</h1>
+                <p className="text-sm text-[var(--text-secondary)] mt-1">
                     Consultation history, lab results, and health trends
                 </p>
             </div>
 
             {/* Health Trends */}
-            <Card className="border-blue-500/20">
+            <Card className="border-[var(--border)] bg-[var(--surface)]" style={{ borderRadius: "var(--radius)" }}>
                 <CardHeader>
                     <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-blue-400" />
+                        <CardTitle className="flex items-center gap-2 text-[var(--text-primary)]">
+                            <div className="w-8 h-8 rounded-lg bg-[#4A90E2]/10 flex items-center justify-center">
+                                <TrendingUp className="w-4 h-4 text-[#4A90E2]" />
+                            </div>
                             Health Trends
                         </CardTitle>
                         <div className="flex gap-1">
@@ -172,7 +210,11 @@ export function PatientReportsClient({ user }: PatientReportsClientProps) {
                                     key={t.key}
                                     variant={activeChart === t.key ? "default" : "ghost"}
                                     size="sm"
-                                    className="text-[10px] h-7 px-2 gap-1"
+                                    className={`text-[10px] h-8 px-3 gap-1 rounded-xl ${
+                                        activeChart === t.key
+                                            ? "bg-[var(--primary)] text-white"
+                                            : "hover:bg-[var(--surface-elevated)]"
+                                    }`}
                                     onClick={() => setActiveChart(t.key)}
                                 >
                                     <t.icon className="w-3 h-3" />
@@ -183,44 +225,44 @@ export function PatientReportsClient({ user }: PatientReportsClientProps) {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="h-48">
+                    <div className="h-52">
                         <ResponsiveContainer width="100%" height="100%">
                             {activeChart === "bp" ? (
                                 <AreaChart data={HEALTH_TRENDS}>
                                     <defs>
                                         <linearGradient id="bpGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
-                                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                            <stop offset="5%" stopColor="#EF4444" stopOpacity={0.15} />
+                                            <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                                    <XAxis dataKey="month" tick={{ fill: "var(--foreground-subtle)", fontSize: 10 }} />
-                                    <YAxis tick={{ fill: "var(--foreground-subtle)", fontSize: 10 }} domain={[70, 160]} />
-                                    <Tooltip contentStyle={{ background: "var(--surface-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 11 }} />
-                                    <Area type="monotone" dataKey="bp_systolic" stroke="#ef4444" fill="url(#bpGrad)" strokeWidth={2} name="Systolic" />
-                                    <Line type="monotone" dataKey="bp_diastolic" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} name="Diastolic" />
+                                    <XAxis dataKey="month" tick={{ fill: "var(--text-secondary)", fontSize: 11 }} />
+                                    <YAxis tick={{ fill: "var(--text-secondary)", fontSize: 11 }} domain={[70, 160]} />
+                                    <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }} />
+                                    <Area type="monotone" dataKey="bp_systolic" stroke="#EF4444" fill="url(#bpGrad)" strokeWidth={2} name="Systolic" />
+                                    <Line type="monotone" dataKey="bp_diastolic" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} name="Diastolic" />
                                 </AreaChart>
                             ) : activeChart === "sugar" ? (
                                 <AreaChart data={HEALTH_TRENDS}>
                                     <defs>
                                         <linearGradient id="sugarGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                            <stop offset="5%" stopColor="#4A90E2" stopOpacity={0.15} />
+                                            <stop offset="95%" stopColor="#4A90E2" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                                    <XAxis dataKey="month" tick={{ fill: "var(--foreground-subtle)", fontSize: 10 }} />
-                                    <YAxis tick={{ fill: "var(--foreground-subtle)", fontSize: 10 }} />
-                                    <Tooltip contentStyle={{ background: "var(--surface-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 11 }} />
-                                    <Area type="monotone" dataKey="blood_sugar" stroke="#3b82f6" fill="url(#sugarGrad)" strokeWidth={2} name="Fasting Glucose (mg/dL)" />
+                                    <XAxis dataKey="month" tick={{ fill: "var(--text-secondary)", fontSize: 11 }} />
+                                    <YAxis tick={{ fill: "var(--text-secondary)", fontSize: 11 }} />
+                                    <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }} />
+                                    <Area type="monotone" dataKey="blood_sugar" stroke="#4A90E2" fill="url(#sugarGrad)" strokeWidth={2} name="Fasting Glucose (mg/dL)" />
                                 </AreaChart>
                             ) : (
                                 <LineChart data={HEALTH_TRENDS}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                                    <XAxis dataKey="month" tick={{ fill: "var(--foreground-subtle)", fontSize: 10 }} />
-                                    <YAxis tick={{ fill: "var(--foreground-subtle)", fontSize: 10 }} domain={[65, 75]} />
-                                    <Tooltip contentStyle={{ background: "var(--surface-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 11 }} />
-                                    <Line type="monotone" dataKey="weight" stroke="#22c55e" strokeWidth={2} dot={{ r: 4, fill: "#22c55e" }} name="Weight (kg)" />
+                                    <XAxis dataKey="month" tick={{ fill: "var(--text-secondary)", fontSize: 11 }} />
+                                    <YAxis tick={{ fill: "var(--text-secondary)", fontSize: 11 }} domain={[65, 75]} />
+                                    <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }} />
+                                    <Line type="monotone" dataKey="weight" stroke="#10B981" strokeWidth={2} dot={{ r: 4, fill: "#10B981" }} name="Weight (kg)" />
                                 </LineChart>
                             )}
                         </ResponsiveContainer>
@@ -231,16 +273,16 @@ export function PatientReportsClient({ user }: PatientReportsClientProps) {
             {/* Search */}
             <div className="flex items-center gap-3">
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--foreground-subtle)]" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search by diagnosis, doctor, or complaint..."
-                        className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg pl-9 pr-3 py-2 text-xs text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:outline-none focus:border-blue-500/50 transition-colors"
+                        className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 transition-all duration-200"
                     />
                 </div>
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge className="text-xs bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-[var(--border)]">
                     {filtered.length} report{filtered.length !== 1 ? "s" : ""}
                 </Badge>
             </div>
@@ -256,38 +298,38 @@ export function PatientReportsClient({ user }: PatientReportsClientProps) {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.05 }}
                         >
-                            <Card className={`transition-colors ${isExpanded ? "border-blue-500/30" : ""}`}>
+                            <Card className={`transition-all duration-200 bg-[var(--surface)] border-[var(--border)] hover:shadow-md ${isExpanded ? "border-[var(--primary)]/30" : ""}`} style={{ borderRadius: "var(--radius)" }}>
                                 <button
                                     onClick={() => setExpandedId(isExpanded ? null : c.id)}
                                     className="w-full text-left"
                                 >
                                     <CardContent className="p-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                                                <FileText className="w-4 h-4 text-blue-400" />
+                                            <div className="w-10 h-10 rounded-xl bg-[#4A90E2]/10 flex items-center justify-center shrink-0">
+                                                <FileText className="w-5 h-5 text-[#4A90E2]" />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-xs font-semibold text-[var(--foreground)] truncate">
+                                                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
                                                         {c.diagnosis.join(", ")}
                                                     </p>
                                                     {c.icd_codes.map((code) => (
-                                                        <Badge key={code} variant="secondary" className="text-[8px] shrink-0">
+                                                        <Badge key={code} className="text-[8px] shrink-0 bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-0">
                                                             {code}
                                                         </Badge>
                                                     ))}
                                                 </div>
-                                                <p className="text-[10px] text-[var(--foreground-subtle)] mt-0.5">
+                                                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                                                     {c.doctor} · {c.department} · {c.date}
                                                 </p>
                                             </div>
-                                            <Badge variant={c.type === "followup" ? "default" : "secondary"} className="text-[9px] shrink-0">
+                                            <Badge className={`text-[9px] shrink-0 border-0 ${c.type === "followup" ? "bg-[var(--primary)]/10 text-[var(--primary)]" : "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}>
                                                 {c.type}
                                             </Badge>
                                             {isExpanded ? (
-                                                <ChevronDown className="w-4 h-4 text-[var(--foreground-subtle)]" />
+                                                <ChevronDown className="w-4 h-4 text-[var(--text-secondary)]" />
                                             ) : (
-                                                <ChevronRight className="w-4 h-4 text-[var(--foreground-subtle)]" />
+                                                <ChevronRight className="w-4 h-4 text-[var(--text-secondary)]" />
                                             )}
                                         </div>
                                     </CardContent>
@@ -299,28 +341,28 @@ export function PatientReportsClient({ user }: PatientReportsClientProps) {
                                         animate={{ opacity: 1, height: "auto" }}
                                         className="border-t border-[var(--border)]"
                                     >
-                                        <CardContent className="p-4 space-y-4">
+                                        <CardContent className="p-5 space-y-4">
                                             {/* Chief complaint */}
                                             <div>
-                                                <p className="text-[10px] text-[var(--foreground-subtle)] uppercase tracking-wider mb-1">Chief Complaint</p>
-                                                <p className="text-xs text-[var(--foreground)]">{c.chief_complaint}</p>
+                                                <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider mb-1">Chief Complaint</p>
+                                                <p className="text-sm text-[var(--text-primary)]">{c.chief_complaint}</p>
                                             </div>
 
                                             {/* Vitals grid */}
                                             <div>
-                                                <p className="text-[10px] text-[var(--foreground-subtle)] uppercase tracking-wider mb-2">Vitals</p>
+                                                <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider mb-2">Vitals</p>
                                                 <div className="grid grid-cols-5 gap-2">
                                                     {[
-                                                        { label: "BP", value: c.vitals.bp, icon: Heart, color: "text-red-400" },
-                                                        { label: "HR", value: `${c.vitals.hr} bpm`, icon: Activity, color: "text-green-400" },
-                                                        { label: "Temp", value: `${c.vitals.temp}°F`, icon: Thermometer, color: "text-amber-400" },
-                                                        { label: "SpO2", value: `${c.vitals.spo2}%`, icon: Droplets, color: "text-blue-400" },
-                                                        { label: "Weight", value: `${c.vitals.weight} kg`, icon: Scale, color: "text-purple-400" },
+                                                        { label: "BP", value: c.vitals.bp, icon: Heart, color: "text-[#EF4444]", bg: "bg-[#EF4444]/10" },
+                                                        { label: "HR", value: `${c.vitals.hr} bpm`, icon: Activity, color: "text-[#10B981]", bg: "bg-[#10B981]/10" },
+                                                        { label: "Temp", value: `${c.vitals.temp}°F`, icon: Thermometer, color: "text-[#F59E0B]", bg: "bg-[#F59E0B]/10" },
+                                                        { label: "SpO2", value: `${c.vitals.spo2}%`, icon: Droplets, color: "text-[#4A90E2]", bg: "bg-[#4A90E2]/10" },
+                                                        { label: "Weight", value: `${c.vitals.weight} kg`, icon: Scale, color: "text-[#8B5CF6]", bg: "bg-[#8B5CF6]/10" },
                                                     ].map((v) => (
-                                                        <div key={v.label} className="bg-[var(--surface)] rounded-lg p-2 text-center">
-                                                            <v.icon className={`w-3 h-3 mx-auto ${v.color}`} />
-                                                            <p className="text-[10px] text-[var(--foreground-subtle)] mt-1">{v.label}</p>
-                                                            <p className="text-xs font-semibold text-[var(--foreground)]">{v.value}</p>
+                                                        <div key={v.label} className={`${v.bg} rounded-xl p-3 text-center`}>
+                                                            <v.icon className={`w-4 h-4 mx-auto ${v.color}`} />
+                                                            <p className="text-[10px] text-[var(--text-secondary)] mt-1">{v.label}</p>
+                                                            <p className="text-sm font-semibold text-[var(--text-primary)]">{v.value}</p>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -328,36 +370,44 @@ export function PatientReportsClient({ user }: PatientReportsClientProps) {
 
                                             <div className="grid grid-cols-2 gap-4">
                                                 {/* Medications */}
-                                                <div>
-                                                    <p className="text-[10px] text-[var(--foreground-subtle)] uppercase tracking-wider mb-1">Medications</p>
+                                                <div className="bg-[var(--surface-elevated)] rounded-xl p-4">
+                                                    <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider mb-2">Medications</p>
                                                     {c.medications.map((m, i) => (
-                                                        <div key={i} className="flex items-center gap-2 py-1">
-                                                            <Pill className="w-3 h-3 text-green-400 shrink-0" />
-                                                            <span className="text-xs text-[var(--foreground)]">{m}</span>
+                                                        <div key={i} className="flex items-center gap-2 py-1.5">
+                                                            <Pill className="w-4 h-4 text-[#10B981] shrink-0" />
+                                                            <span className="text-sm text-[var(--text-primary)]">{m}</span>
                                                         </div>
                                                     ))}
                                                 </div>
 
                                                 {/* Lab Tests */}
-                                                <div>
-                                                    <p className="text-[10px] text-[var(--foreground-subtle)] uppercase tracking-wider mb-1">Lab Results</p>
+                                                <div className="bg-[var(--surface-elevated)] rounded-xl p-4">
+                                                    <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider mb-2">Lab Results</p>
                                                     {c.lab_tests.map((t, i) => (
-                                                        <div key={i} className="flex items-center gap-2 py-1">
-                                                            <Activity className="w-3 h-3 text-blue-400 shrink-0" />
-                                                            <span className="text-xs text-[var(--foreground)]">{t}</span>
+                                                        <div key={i} className="flex items-center gap-2 py-1.5">
+                                                            <Activity className="w-4 h-4 text-[#4A90E2] shrink-0" />
+                                                            <span className="text-sm text-[var(--text-primary)]">{t}</span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
 
                                             {/* Summary */}
-                                            <div className="bg-blue-500/5 border border-blue-500/15 rounded-lg p-3">
-                                                <p className="text-[10px] text-blue-400 uppercase tracking-wider mb-1">Clinical Summary</p>
-                                                <p className="text-xs text-[var(--foreground-muted)] leading-relaxed">{c.summary}</p>
+                                            <div className="bg-[#4A90E2]/5 border border-[#4A90E2]/15 rounded-xl p-4">
+                                                <p className="text-[10px] text-[#4A90E2] uppercase tracking-wider mb-1">Clinical Summary</p>
+                                                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{c.summary}</p>
                                             </div>
 
-                                            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                                                <Download className="w-3 h-3" /> Download Report
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="gap-1.5 text-sm rounded-xl border-[var(--border)] hover:bg-[var(--surface-elevated)]"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDownloadReport(c.id);
+                                                }}
+                                            >
+                                                <Download className="w-4 h-4" /> Download Report
                                             </Button>
                                         </CardContent>
                                     </motion.div>
