@@ -13,44 +13,73 @@ export async function POST(request: Request) {
 
         const supabase = getSupabaseAdminClient();
 
-        // Generate a user ID
-        const userId = `patient-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        // 1. Generate a real UUID for the user
+        const userId = crypto.randomUUID();
 
-        // Create user entry
-        const { error: userError } = await supabase.from("users").insert({
+        // 2. Upsert user entry
+        const email = `${phone.replace(/\D/g, "")}@patient.nexusmd.app`;
+        const { data: userData, error: userError } = await supabase.from("users").upsert({
             id: userId,
-            email: `${phone.replace(/\D/g, "")}@patient.nexusmd.app`,
+            email,
             name,
+            phone: phone,
             role: "patient",
             is_active: true,
-        });
+        }, { onConflict: 'email' }).select('id').single();
 
         if (userError) {
-            return NextResponse.json({ error: userError.message }, { status: 500 });
+            console.error("User creation/fetch error:", userError.message);
+            return NextResponse.json({ error: userError.message, details: userError }, { status: 500 });
         }
 
-        // Create patient entry
-        const { data: patient, error: patientError } = await supabase.from("patients").insert({
-            user_id: userId,
+        const actualUserId = userData.id;
+
+        // 3. Find if patient already exists
+        const { data: existingPatient } = await supabase
+            .from("patients")
+            .select("id")
+            .eq("user_id", actualUserId)
+            .maybeSingle();
+
+        const patientData = {
+            user_id: actualUserId,
             name,
             phone: phone ?? "",
-            dob: dob ?? null,
-            gender: gender ?? "Other",
-            blood_group: blood_group ?? "",
-            abha_id: abha_id ?? null,
-            allergies: allergies ?? [],
-            chronic_conditions: chronic_conditions ?? [],
-            emergency_contact: emergency_contact ?? "",
-            address: address ?? "",
-        }).select().single();
+            dob: dob || "1900-01-01",
+            gender: (gender === 'M' || gender === 'F') ? gender : 'Other',
+            blood_group: blood_group || "Unknown",
+            abha_id: abha_id || null,
+            allergies: Array.isArray(allergies) ? allergies : [],
+            chronic_conditions: Array.isArray(chronic_conditions) ? chronic_conditions : [],
+            address: address || "",
+            emergency_contact: emergency_contact || "",
+        };
 
-        if (patientError) {
-            return NextResponse.json({ error: patientError.message }, { status: 500 });
+        let result;
+        if (existingPatient) {
+            result = await supabase
+                .from("patients")
+                .update(patientData)
+                .eq("id", existingPatient.id)
+                .select()
+                .single();
+        } else {
+            result = await supabase
+                .from("patients")
+                .insert(patientData)
+                .select()
+                .single();
         }
 
-        return NextResponse.json({ patient: { ...patient, user_id: userId } });
-    } catch {
-        return NextResponse.json({ error: "Failed to register patient" }, { status: 500 });
+        if (result.error) {
+            console.error("Patient operation error:", result.error.message);
+            return NextResponse.json({ error: result.error.message, details: result.error }, { status: 500 });
+        }
+
+        return NextResponse.json({ patient: result.data });
+    } catch (err: any) {
+        console.error("API Error [patients POST]:", err);
+        return NextResponse.json({ error: err.message || "Internal Server Error", details: err }, { status: 500 });
     }
 }
 

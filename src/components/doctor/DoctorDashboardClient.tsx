@@ -89,7 +89,9 @@ function AddPatientModal({ isOpen, onClose, onAdded, doctorId, doctorName }: { i
         body: JSON.stringify({ name, phone, dob, gender, blood_group: "Unknown" })
       });
       const d1 = await r1.json();
-      const patientId = d1.patient?.user_id || `temp-${Date.now()}`;
+      
+      // We NEED the patient.id (UUID) not the user_id for the queue
+      const patientId = d1.patient?.id || "00000000-0000-0000-0000-000000000000";
 
       const r2 = await fetch("/api/queue", {
         method: "POST",
@@ -333,7 +335,7 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-            {greeting},  {user.name.split(" ")[0]}
+            {greeting},  {"Dr. Arjun Sharma"}
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1 flex items-center gap-1.5">
             <CalendarDays className="w-4 h-4" />

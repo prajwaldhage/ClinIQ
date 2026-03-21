@@ -11,7 +11,7 @@ export interface DemoUser {
 
 export const DEMO_USERS: Array<DemoUser & { password: string }> = [
   {
-    id: "demo-doctor-001",
+    id: "44444444-4444-4444-4444-444444444444",
     email: "demo.doctor@cliniq.app",
     password: "demo123456",
     name: "Dr. Arjun Sharma",
@@ -19,21 +19,29 @@ export const DEMO_USERS: Array<DemoUser & { password: string }> = [
     department: "Internal Medicine",
   },
   {
-    id: "demo-patient-001",
+    id: "11111111-1111-1111-1111-111111111111",
     email: "demo.patient@cliniq.app",
     password: "demo123456",
     name: "Priya Sharma",
     role: "patient",
   },
   {
-    id: "demo-admin-001",
+    id: "33333333-3333-3333-3333-333333333333",
+    email: "demo.reception@cliniq.app",
+    password: "demo123456",
+    name: "Kavita (Receptionist)",
+    role: "receptionist",
+    department: "Front Desk",
+  },
+  {
+    id: "55555555-5555-5555-5555-555555555555",
     email: "demo.admin@cliniq.app",
     password: "demo123456",
     name: "Admin User",
     role: "admin",
   },
   {
-    id: "demo-nurse-001",
+    id: "66666666-6666-6666-6666-666666666666",
     email: "demo.nurse@cliniq.app",
     password: "demo123456",
     name: "Nurse Kavita",
@@ -41,20 +49,12 @@ export const DEMO_USERS: Array<DemoUser & { password: string }> = [
     department: "General Ward",
   },
   {
-    id: "demo-research-001",
+    id: "77777777-7777-7777-7777-777777777777",
     email: "demo.research@cliniq.app",
     password: "demo123456",
     name: "Dr. Meera Nair",
     role: "research",
     department: "Clinical Research",
-  },
-  {
-    id: "demo-receptionist-001",
-    email: "demo.reception@cliniq.app",
-    password: "demo123456",
-    name: "Kavita (Receptionist)",
-    role: "receptionist",
-    department: "Front Desk",
   },
 ];
 

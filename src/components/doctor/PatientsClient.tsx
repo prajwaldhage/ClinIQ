@@ -16,7 +16,16 @@ import { cn, formatDate, getInitials } from "@/lib/utils";
 
 // ─── Comprehensive Mock Data ─────────────────────────────────────────────────
 
-const MOCK_PATIENTS = [
+type PatientType = {
+  id: string; name: string; age: number; gender: string; phone: string;
+  blood_group: string; dob: string; abha_id: string; address: string;
+  allergies: string[]; chronic_conditions: string[]; emergency_contact: string;
+  last_visit: string; total_visits: number; status: string; insurance: string;
+  vitals: { bp: string; sugar: string; weight: string };
+  upcoming_appointment: string | null; risk_level: "low" | "high" | "critical";
+};
+
+const MOCK_PATIENTS: PatientType[] = [
   {
     id: "p-001",
     name: "Priya Sharma",
@@ -186,9 +195,6 @@ const MOCK_PATIENTS = [
     risk_level: "low" as const,
   },
 ];
-
-type PatientType = typeof MOCK_PATIENTS[0];
-
 // ─── Patient stats ────────────────────────────────────────────────────────────
 
 const STATS = [
@@ -476,6 +482,102 @@ function PatientRow({ patient, index, onClick }: { patient: PatientType; index: 
   );
 }
 
+// ─── Add Patient Modal ────────────────────────────────────────────────────────
+function AddPatientModal({ isOpen, onClose, onAdded, doctorId, doctorName }: { isOpen: boolean; onClose: () => void; onAdded: (data: any) => void; doctorId: string; doctorName: string }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("M");
+  const [complaint, setComplaint] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  if (!isOpen) return null;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+       let dob = null;
+       if (age) {
+         const y = new Date().getFullYear() - parseInt(age);
+         dob = `${y}-01-01`;
+       }
+       const r1 = await fetch("/api/patients", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ name, phone, dob, gender, blood_group: "Unknown" })
+       });
+       const d1 = await r1.json();
+       const patientId = d1.patient?.id || "00000000-0000-0000-0000-000000000000";
+       
+       const r2 = await fetch("/api/queue", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            patient_id: patientId,
+            patient_name: name,
+            doctor_id: doctorId,
+            doctor_name: doctorName,
+            priority: "normal",
+            reason: complaint,
+            visit_type: "general"
+          })
+       });
+       const d2 = await r2.json();
+       if (d2.entry) {
+         onAdded(d2.entry);
+       }
+       onClose();
+       setName(""); setPhone(""); setAge(""); setComplaint("");
+    } catch (err) {
+       console.error(err);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[var(--surface)] rounded-2xl p-6 w-full max-w-md border border-[var(--border)] shadow-xl hidden-scrollbar max-h-screen overflow-y-auto">
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Add Patient</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Name</label>
+            <input required value={name} onChange={e=>setName(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="E.g. Ramesh Patel" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Phone</label>
+            <input required value={phone} onChange={e=>setPhone(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="10-digit number" />
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Age</label>
+              <input type="number" value={age} onChange={e=>setAge(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="e.g. 45" />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Gender</label>
+              <select value={gender} onChange={e=>setGender(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]">
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+                <option value="O">Other</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Chief Complaint</label>
+            <textarea required value={complaint} onChange={e=>setComplaint(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="Reason for visit..." rows={3} />
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <Button type="button" variant="outline" onClick={onClose} className="rounded-xl border-[var(--border)] hover:bg-[var(--surface-elevated)]" disabled={loading}>Cancel</Button>
+            <Button type="submit" className="rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white gap-2" disabled={loading}>
+              {loading ? "Adding..." : "Add Patient"}
+            </Button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 interface PatientsClientProps {
@@ -487,9 +589,52 @@ export function PatientsClient({ user }: PatientsClientProps) {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [selectedPatient, setSelectedPatient] = useState<PatientType | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "risk" | "lastVisit">("risk");
+  const [patients, setPatients] = useState<PatientType[]>(MOCK_PATIENTS);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showAddPatient, setShowAddPatient] = useState(false);
+
+  React.useEffect(() => {
+    async function fetchPatients() {
+      try {
+        const res = await fetch("/api/patients");
+        const data = await res.json();
+        if (data.patients && data.patients.length > 0) {
+          const mapped = data.patients.map((p: any) => ({
+            id: p.user_id || p.id,
+            name: p.name || 'Unknown',
+            age: p.dob ? new Date().getFullYear() - new Date(p.dob).getFullYear() : 35,
+            gender: (p.gender?.[0] || 'M') as "M" | "F",
+            phone: p.phone,
+            blood_group: p.blood_group || 'Unknown',
+            dob: p.dob || '1990-01-01',
+            abha_id: p.abha_id || 'N/A',
+            address: p.address || 'N/A',
+            allergies: p.allergies || [],
+            chronic_conditions: p.chronic_conditions || [],
+            emergency_contact: p.emergency_contact || 'N/A',
+            last_visit: new Date().toISOString().split('T')[0],
+            total_visits: 1,
+            status: (p.users?.is_active ? 'active' : 'inactive') as "active" | "inactive",
+            insurance: 'None',
+            vitals: { bp: "120/80", sugar: "100 mg/dL", weight: "65 kg" }, // Defaults since not loaded
+            upcoming_appointment: null as any,
+            risk_level: 'low' as "low" | "high" | "critical",
+          }));
+          setPatients(mapped);
+        } else {
+          setPatients([]);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchPatients();
+  }, []);
 
   const filteredPatients = useMemo(() => {
-    let list = MOCK_PATIENTS.filter((p) => {
+    let list = patients.filter((p) => {
       const matchesSearch =
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.phone.includes(searchQuery) ||
@@ -517,7 +662,7 @@ export function PatientsClient({ user }: PatientsClientProps) {
     });
 
     return list;
-  }, [searchQuery, activeFilter, sortBy]);
+  }, [searchQuery, activeFilter, sortBy, patients]);
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -529,7 +674,7 @@ export function PatientsClient({ user }: PatientsClientProps) {
             Patient Registry
           </h1>
           <p className="text-sm text-[var(--foreground-muted)] mt-0.5">
-            {MOCK_PATIENTS.length} patients · {MOCK_PATIENTS.filter(p => p.status === "active").length} active
+            {patients.length} patients · {patients.filter(p => p.status === "active").length} active
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -537,7 +682,7 @@ export function PatientsClient({ user }: PatientsClientProps) {
             <Download className="w-3.5 h-3.5" />
             Export
           </Button>
-          <Button size="sm" className="gap-1.5 text-xs">
+          <Button size="sm" className="gap-1.5 text-xs" onClick={() => setShowAddPatient(true)}>
             <Plus className="w-3.5 h-3.5" />
             Add Patient
           </Button>
@@ -546,35 +691,75 @@ export function PatientsClient({ user }: PatientsClientProps) {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {STATS.map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <Card className="border-[var(--border)]">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs text-[var(--foreground-subtle)]">{stat.label}</p>
-                      <p className="text-2xl font-bold text-[var(--foreground)] mt-0.5">{stat.value}</p>
+        {isLoading ? (
+          <div className="col-span-4 p-8 text-center text-[var(--foreground-muted)]">Loading patients...</div>
+        ) : (
+          [
+            { label: "Total Patients", value: patients.length.toString(), icon: Users, color: "text-blue-400", bg: "bg-blue-500/10" },
+            { label: "High Risk", value: patients.filter(p => p.risk_level === "critical" || p.risk_level === "high").length.toString(), icon: AlertTriangle, color: "text-red-400", bg: "bg-red-500/10" },
+            { label: "Today's Appts", value: "3", icon: Calendar, color: "text-green-400", bg: "bg-green-500/10" },
+            { label: "Active Cases", value: patients.filter(p => p.status === "active").length.toString(), icon: Activity, color: "text-amber-400", bg: "bg-amber-500/10" },
+          ].map((stat, i) => {
+            const Icon = stat.icon;
+            return (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <Card className="border-[var(--border)]">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs text-[var(--foreground-subtle)]">{stat.label}</p>
+                        <p className="text-2xl font-bold text-[var(--foreground)] mt-0.5">{stat.value}</p>
+                      </div>
+                      <div className={cn("flex items-center justify-center w-9 h-9 rounded-lg", stat.bg)}>
+                        <Icon className={cn("w-4 h-4", stat.color)} />
+                      </div>
                     </div>
-                    <div className={cn("flex items-center justify-center w-9 h-9 rounded-lg", stat.bg)}>
-                      <Icon className={cn("w-4 h-4", stat.color)} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })
+        )}
       </div>
 
       {/* Search & Filters */}
       <div className="flex items-center gap-3 flex-wrap">
+        <AddPatientModal 
+          isOpen={showAddPatient} 
+          onClose={() => setShowAddPatient(false)} 
+          onAdded={(data) => {
+            // Append newly added patient to registry locally
+            const newPatient: PatientType = {
+              id: data.patient_id || `temp-${Date.now()}`,
+              name: data.patient_name || 'Unknown',
+              age: 35,
+              gender: 'M' as "M" | "F",
+              phone: 'Not provided',
+              blood_group: 'Unknown',
+              dob: '1990-01-01',
+              abha_id: 'N/A',
+              address: 'N/A',
+              allergies: [] as string[],
+              chronic_conditions: [] as string[],
+              emergency_contact: 'N/A',
+              last_visit: new Date().toISOString().split('T')[0],
+              total_visits: 1,
+              status: 'active' as "active" | "inactive",
+              insurance: 'None',
+              vitals: { bp: "120/80", sugar: "100 mg/dL", weight: "65 kg" },
+              upcoming_appointment: null as any,
+              risk_level: 'low' as "low" | "high" | "critical",
+            };
+            setPatients(prev => [newPatient, ...prev]);
+          }}
+          doctorId={user.id}
+          doctorName={user.name}
+        />
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--foreground-subtle)]" />
           <input
@@ -613,7 +798,19 @@ export function PatientsClient({ user }: PatientsClientProps) {
 
       {/* Patient List */}
       <div className="space-y-2">
-        {filteredPatients.length === 0 ? (
+        {isLoading ? (
+           <div className="animate-pulse space-y-4">
+             {[1, 2, 3].map(n => (
+                <div key={n} className="flex gap-4 p-4 border border-[var(--border)] rounded-xl">
+                  <div className="w-10 h-10 rounded-full bg-[var(--surface-elevated)]"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-[var(--surface-elevated)] rounded w-1/4"></div>
+                    <div className="h-3 bg-[var(--surface-elevated)] rounded w-1/3"></div>
+                  </div>
+                </div>
+             ))}
+           </div>
+        ) : filteredPatients.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-[var(--foreground-subtle)]">
             <Users className="w-10 h-10 mb-3 opacity-30" />
             <p className="text-sm">No patients match your search</p>

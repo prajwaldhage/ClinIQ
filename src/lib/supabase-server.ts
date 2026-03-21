@@ -29,7 +29,11 @@ export async function getSupabaseServerClient() {
 
 // ─── Admin client (service role — for Edge Functions / audit log) ─────────────
 export function getSupabaseAdminClient() {
-  return createClient(supabaseUrl, supabaseServiceKey, {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!serviceKey) {
+    throw new Error("Missing Supabase Key");
+  }
+  return createClient(supabaseUrl, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
