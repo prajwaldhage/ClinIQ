@@ -256,11 +256,11 @@ const TYPE_CONFIG = {
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
-const STATS = [
-  { label: "Total Records", value: MOCK_EMR_RECORDS.length.toString(), icon: ClipboardList, color: "text-blue-400", bg: "bg-blue-500/10" },
-  { label: "This Week", value: MOCK_EMR_RECORDS.filter(r => new Date(r.date) > new Date("2026-02-19")).length.toString(), icon: Calendar, color: "text-green-400", bg: "bg-green-500/10" },
-  { label: "Pending Review", value: MOCK_EMR_RECORDS.filter(r => r.status === "in-review").length.toString(), icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
-  { label: "ICD Codes Mapped", value: MOCK_EMR_RECORDS.reduce((sum, r) => sum + r.icd_codes.length, 0).toString(), icon: Activity, color: "text-purple-400", bg: "bg-purple-500/10" },
+const getStats = (records: EMRRecord[]) => [
+  { label: "Total Records", value: records.length.toString(), icon: ClipboardList, color: "text-blue-400", bg: "bg-blue-500/10" },
+  { label: "This Week", value: records.filter((r: EMRRecord) => new Date(r.date) > new Date("2026-02-19")).length.toString(), icon: Calendar, color: "text-green-400", bg: "bg-green-500/10" },
+  { label: "Pending Review", value: records.filter((r: EMRRecord) => r.status === "in-review").length.toString(), icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
+  { label: "ICD Codes Mapped", value: records.reduce((sum: number, r: EMRRecord) => sum + (r.icd_codes ? r.icd_codes.length : 0), 0).toString(), icon: Activity, color: "text-purple-400", bg: "bg-purple-500/10" },
 ];
 
 // ─── EMR Detail View ──────────────────────────────────────────────────────────
@@ -604,9 +604,59 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "in-review" | "draft">("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "general" | "followup" | "emergency">("all");
   const [selectedRecord, setSelectedRecord] = useState<EMRRecord | null>(null);
+  
+  const [records, setRecords] = useState<EMRRecord[]>(MOCK_EMR_RECORDS);
+  const [isLoading, setIsLoading] = useState(true);
+
+  React.useEffect(() => {
+    async function fetchEMR() {
+      try {
+        const res = await fetch(`/api/consultations?doctor_id=${user.id}`);
+        const data = await res.json();
+        if (data.consultations && data.consultations.length > 0) {
+          const mapped = data.consultations.map((c: any) => ({
+            id: c.id,
+            consultation_id: c.id,
+            patient_name: c.patients?.name || 'Unknown Patient',
+            patient_age: c.patients?.dob ? new Date().getFullYear() - new Date(c.patients.dob).getFullYear() : 35,
+            patient_gender: c.patients?.gender?.[0] || 'O',
+            patient_id: c.patient_id,
+            doctor_name: user.name || 'Doctor',
+            date: c.started_at || new Date().toISOString(),
+            consultation_type: c.consultation_type || 'general',
+            status: c.status === 'completed' || c.status === 'finalized' ? 'completed' : 'in-review',
+            chief_complaint: c.chief_complaint || 'No complaint listed',
+            vitals: {
+              bp_systolic: 120, bp_diastolic: 80,
+              heart_rate: 72, temperature: 98.6,
+              spo2: 98, weight: 65, height: 165,
+              respiratory_rate: 16,
+            },
+            symptoms: [],
+            diagnosis: [],
+            icd_codes: [],
+            medications: [],
+            lab_tests_ordered: [],
+            physical_examination: 'Not recorded.',
+            clinical_summary: 'Consultation record.',
+            gap_prompts: [],
+            missing_fields: [],
+          }));
+          setRecords(mapped);
+        } else {
+          setRecords([]);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchEMR();
+  }, [user.id]);
 
   const filteredRecords = useMemo(() => {
-    return MOCK_EMR_RECORDS.filter((r) => {
+    return records.filter((r) => {
       const matchesSearch =
         r.patient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         r.chief_complaint.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -617,7 +667,7 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
       if (typeFilter !== "all" && r.consultation_type !== typeFilter) return false;
       return true;
     });
-  }, [searchQuery, statusFilter, typeFilter]);
+  }, [searchQuery, statusFilter, typeFilter, records]);
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -629,7 +679,7 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
             EMR Records
           </h1>
           <p className="text-sm text-[var(--foreground-muted)] mt-0.5">
-            {MOCK_EMR_RECORDS.length} records · FHIR-compliant electronic medical records
+            {records.length} records · FHIR-compliant electronic medical records
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -640,31 +690,34 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Search & Filters */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {STATS.map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <Card className="border-[var(--border)]">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs text-[var(--foreground-subtle)]">{stat.label}</p>
-                      <p className="text-2xl font-bold text-[var(--foreground)] mt-0.5">{stat.value}</p>
+        {isLoading ? (
+          <div className="col-span-4 p-8 text-center text-[var(--foreground-muted)]">Loading EMR stats...</div>
+        ) : (
+          getStats(records).map((stat, i) => {
+            const Icon = stat.icon;
+            return (
+              <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                <Card className="border-[var(--border)]">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs text-[var(--foreground-subtle)]">{stat.label}</p>
+                        <p className="text-2xl font-bold text-[var(--foreground)] mt-0.5">{stat.value}</p>
+                      </div>
+                      <div className={cn("flex items-center justify-center w-9 h-9 rounded-lg", stat.bg)}>
+                        <Icon className={cn("w-4 h-4", stat.color)} />
+                      </div>
                     </div>
-                    <div className={cn("flex items-center justify-center w-9 h-9 rounded-lg", stat.bg)}>
-                      <Icon className={cn("w-4 h-4", stat.color)} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })
+        )}
       </div>
 
-      {/* Search & Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--foreground-subtle)]" />
@@ -699,8 +752,20 @@ export function EMRRecordsClient({ user }: EMRRecordsClientProps) {
 
       {/* Records List */}
       <div className="space-y-2">
-        {filteredRecords.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-[var(--foreground-subtle)]">
+        {isLoading ? (
+          <div className="animate-pulse space-y-4">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="flex space-x-4 p-4 rounded-xl border border-[var(--border)]">
+                <div className="rounded-full bg-[var(--surface-elevated)] h-10 w-10"></div>
+                <div className="flex-1 space-y-4 py-1">
+                  <div className="h-4 bg-[var(--surface-elevated)] rounded w-1/4"></div>
+                  <div className="h-3 bg-[var(--surface-elevated)] rounded w-1/2"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredRecords.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-[var(--foreground-subtle)] border border-[var(--border)] rounded-xl border-dashed">
             <ClipboardList className="w-10 h-10 mb-3 opacity-30" />
             <p className="text-sm">No records match your search</p>
             <p className="text-xs mt-1">Try adjusting your filters</p>

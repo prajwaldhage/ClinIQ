@@ -20,6 +20,7 @@ import { AuditTrailPanel } from "./AuditTrailPanel";
 import { ConsentRecorder } from "./ConsentRecorder";
 import { PatientSummaryPanel } from "./PatientSummaryPanel";
 import { RuralModeIndicator } from "@/components/shared/RuralModeIndicator";
+import { MedicineAutocomplete } from "@/components/shared/MedicineAutocomplete";
 import { useMedicalScribe } from "@/hooks/useMedicalScribe";
 import { useConsultationStore } from "@/store/consultationStore";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
@@ -483,8 +484,16 @@ function EMRLivePanel() {
             <p className="text-xs text-[var(--foreground-subtle)] italic">Listening for medications...</p>
           )}
           {addingTo === "medications" && (
-            <div className="p-2 rounded-lg bg-[var(--background)] border border-green-500/40 space-y-1.5">
-              <input className="w-full text-xs bg-transparent border-b border-green-500/50 outline-none text-[var(--foreground)] pb-1" value={addMedFields.name} onChange={(e) => setAddMedFields(p => ({ ...p, name: e.target.value }))} placeholder="Medication name..." autoFocus />
+            <div className="p-2 rounded-lg bg-[var(--background)] border border-green-500/40 space-y-1.5 overflow-visible">
+              <MedicineAutocomplete 
+                value={addMedFields.name} 
+                onChange={(val) => setAddMedFields(p => ({ ...p, name: val }))} 
+                onSelect={(val) => setAddMedFields(p => ({ ...p, name: val }))} 
+                placeholder="Medication name..." 
+                autoFocus 
+                hideIcon
+                inputClassName="!bg-transparent !border-0 !border-b !border-green-500/50 !rounded-none !px-0 !py-0 !pb-1 !text-xs !shadow-none focus:!border-green-500/50 focus:!ring-0 w-full outline-none text-[var(--foreground)]"
+              />
               <div className="grid grid-cols-3 gap-1.5">
                 <input className="text-[10px] bg-transparent border-b border-[var(--border)] outline-none text-[var(--foreground-muted)] pb-0.5" value={addMedFields.dosage} onChange={(e) => setAddMedFields(p => ({ ...p, dosage: e.target.value }))} placeholder="Dose" />
                 <input className="text-[10px] bg-transparent border-b border-[var(--border)] outline-none text-[var(--foreground-muted)] pb-0.5" value={addMedFields.frequency} onChange={(e) => setAddMedFields(p => ({ ...p, frequency: e.target.value }))} placeholder="Frequency" />

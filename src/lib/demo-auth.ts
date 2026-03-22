@@ -11,54 +11,54 @@ export interface DemoUser {
 
 export const DEMO_USERS: Array<DemoUser & { password: string }> = [
   {
-    id: "demo-doctor-001",
-    email: "demo.doctor@nexusmd.app",
+    id: "44444444-4444-4444-4444-444444444444",
+    email: "demo.doctor@cliniq.app",
     password: "demo123456",
     name: "Dr. Arjun Sharma",
     role: "doctor",
     department: "Internal Medicine",
   },
   {
-    id: "demo-patient-001",
-    email: "demo.patient@nexusmd.app",
+    id: "11111111-1111-1111-1111-111111111111",
+    email: "demo.patient@cliniq.app",
     password: "demo123456",
     name: "Priya Sharma",
     role: "patient",
   },
   {
-    id: "demo-admin-001",
-    email: "demo.admin@nexusmd.app",
+    id: "33333333-3333-3333-3333-333333333333",
+    email: "demo.reception@cliniq.app",
+    password: "demo123456",
+    name: "Kavita (Receptionist)",
+    role: "receptionist",
+    department: "Front Desk",
+  },
+  {
+    id: "55555555-5555-5555-5555-555555555555",
+    email: "demo.admin@cliniq.app",
     password: "demo123456",
     name: "Admin User",
     role: "admin",
   },
   {
-    id: "demo-nurse-001",
-    email: "demo.nurse@nexusmd.app",
+    id: "66666666-6666-6666-6666-666666666666",
+    email: "demo.nurse@cliniq.app",
     password: "demo123456",
     name: "Nurse Kavita",
     role: "nurse",
     department: "General Ward",
   },
   {
-    id: "demo-research-001",
-    email: "demo.research@nexusmd.app",
+    id: "77777777-7777-7777-7777-777777777777",
+    email: "demo.research@cliniq.app",
     password: "demo123456",
     name: "Dr. Meera Nair",
     role: "research",
     department: "Clinical Research",
   },
-  {
-    id: "demo-receptionist-001",
-    email: "demo.reception@nexusmd.app",
-    password: "demo123456",
-    name: "Kavita (Receptionist)",
-    role: "receptionist",
-    department: "Front Desk",
-  },
 ];
 
-export const SESSION_COOKIE = "nexusmd_session";
+export const SESSION_COOKIE = "cliniq_session";
 
 export function findUser(email: string, password: string): DemoUser | null {
   const found = DEMO_USERS.find(

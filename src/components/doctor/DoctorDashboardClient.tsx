@@ -16,6 +16,7 @@ import { FamilyHealthGraph } from "@/components/doctor/FamilyHealthGraph";
 import { FlashbackCard } from "@/components/doctor/FlashbackCard";
 import { ProtocolCreditBadge, GlobalRepositoryModal, useProtocolCredits } from "@/components/doctor/ProtocolCreditBadge";
 import { formatDate, cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 // ─── Mock data for demo ───────────────────────────────────────────────────────
 
@@ -28,10 +29,10 @@ const MOCK_APPOINTMENTS = [
 ];
 
 const MOCK_STATS = [
-  { label: "Today's Patients", value: "12", icon: Users, delta: "+3 vs yesterday", color: "text-blue-400", bg: "bg-blue-500/10" },
-  { label: "Consultations Done", value: "7", icon: CheckCircle2, delta: "58% complete", color: "text-green-400", bg: "bg-green-500/10" },
-  { label: "Safety Alerts", value: "3", icon: Shield, delta: "2 unresolved", color: "text-red-400", bg: "bg-red-500/10" },
-  { label: "Revenue Today", value: "₹8,400", icon: CreditCard, delta: "+12% vs avg", color: "text-amber-400", bg: "bg-amber-500/10" },
+  { label: "Today's Patients", value: "12", icon: Users, delta: "+3 vs yesterday", color: "text-[#4A90E2]", bg: "bg-[#4A90E2]/10" },
+  { label: "Consultations Done", value: "7", icon: CheckCircle2, delta: "58% complete", color: "text-[#10B981]", bg: "bg-[#10B981]/10" },
+  { label: "Safety Alerts", value: "3", icon: Shield, delta: "2 unresolved", color: "text-[#EF4444]", bg: "bg-[#EF4444]/10" },
+  { label: "Revenue Today", value: "₹8,400", icon: CreditCard, delta: "+12% vs avg", color: "text-[#F59E0B]", bg: "bg-[#F59E0B]/10" },
 ];
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
@@ -44,16 +45,16 @@ function StatCard({ stat, index }: { stat: typeof MOCK_STATS[0]; index: number }
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
     >
-      <Card className="border-[var(--border)] hover:border-[var(--border)]/80 transition-colors">
-        <CardContent className="p-4">
+      <Card className="border-[var(--border)] bg-[var(--surface)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" style={{ borderRadius: "var(--radius)" }}>
+        <CardContent className="p-5">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs text-[var(--foreground-subtle)]">{stat.label}</p>
-              <p className="text-2xl font-bold text-[var(--foreground)] mt-0.5">{stat.value}</p>
-              <p className="text-[10px] text-[var(--foreground-subtle)] mt-1">{stat.delta}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{stat.label}</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)] mt-1">{stat.value}</p>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-1">{stat.delta}</p>
             </div>
-            <div className={cn("flex items-center justify-center w-9 h-9 rounded-lg", stat.bg)}>
-              <Icon className={cn("w-4 h-4", stat.color)} />
+            <div className={cn("flex items-center justify-center w-10 h-10 rounded-xl", stat.bg)}>
+              <Icon className={cn("w-5 h-5", stat.color)} />
             </div>
           </div>
         </CardContent>
@@ -62,27 +63,125 @@ function StatCard({ stat, index }: { stat: typeof MOCK_STATS[0]; index: number }
   );
 }
 
+// ─── Add Patient Modal ────────────────────────────────────────────────────────
+function AddPatientModal({ isOpen, onClose, onAdded, doctorId, doctorName }: { isOpen: boolean, onClose: () => void, onAdded: (data: any) => void, doctorId: string, doctorName: string }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("M");
+  const [complaint, setComplaint] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  if (!isOpen) return null;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      let dob = null;
+      if (age) {
+        const y = new Date().getFullYear() - parseInt(age);
+        dob = `${y}-01-01`;
+      }
+      const r1 = await fetch("/api/patients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone, dob, gender, blood_group: "Unknown" })
+      });
+      const d1 = await r1.json();
+      
+      // We NEED the patient.id (UUID) not the user_id for the queue
+      const patientId = d1.patient?.id || "00000000-0000-0000-0000-000000000000";
+
+      const r2 = await fetch("/api/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient_id: patientId,
+          patient_name: name,
+          doctor_id: doctorId,
+          doctor_name: doctorName,
+          priority: "normal",
+          reason: complaint,
+          visit_type: "general"
+        })
+      });
+      const d2 = await r2.json();
+      if (d2.entry) {
+        onAdded(d2.entry);
+      }
+      onClose();
+      setName(""); setPhone(""); setAge(""); setComplaint("");
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[var(--surface)] rounded-2xl p-6 w-full max-w-md border border-[var(--border)] shadow-xl hidden-scrollbar max-h-screen overflow-y-auto">
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Add Patient</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Name</label>
+            <input required value={name} onChange={e => setName(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="E.g. Ramesh Patel" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Phone</label>
+            <input required value={phone} onChange={e => setPhone(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="10-digit number" />
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Age</label>
+              <input type="number" value={age} onChange={e => setAge(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="e.g. 45" />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Gender</label>
+              <select value={gender} onChange={e => setGender(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]">
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+                <option value="O">Other</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Chief Complaint</label>
+            <textarea required value={complaint} onChange={e => setComplaint(e.target.value)} className="w-full mt-1 px-3 py-2 text-sm bg-[var(--bg)] border border-[var(--border)] rounded-xl focus:outline-none focus:border-[var(--primary)] text-[var(--text-primary)]" placeholder="Reason for visit..." rows={3} />
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <Button type="button" variant="outline" onClick={onClose} className="rounded-xl" disabled={loading}>Cancel</Button>
+            <Button type="submit" className="rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white gap-2" disabled={loading}>
+              {loading ? "Adding..." : "Add Patient"}
+            </Button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Patient row ──────────────────────────────────────────────────────────────
 
-function PatientRow({ appt, index }: { appt: typeof MOCK_APPOINTMENTS[0]; index: number }) {
+function PatientRow({ appt, index, onStart }: { appt: any; index: number; onStart: (appt: any) => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.1 + index * 0.04 }}
       className={cn(
-        "flex items-center gap-4 p-3.5 rounded-lg border transition-colors cursor-pointer group",
+        "flex items-center gap-4 p-4 rounded-xl border transition-all duration-200 cursor-pointer group",
         appt.status === "completed"
-          ? "border-[var(--border-subtle)] opacity-60"
+          ? "border-[var(--border)] opacity-60 bg-transparent"
           : appt.urgency === "high"
-            ? "border-red-500/25 bg-red-500/5 hover:bg-red-500/10"
-            : "border-[var(--border)] hover:bg-[var(--surface-elevated)]"
+            ? "border-[#EF4444]/25 bg-[#EF4444]/5 hover:bg-[#EF4444]/10"
+            : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-elevated)] hover:shadow-sm"
       )}
     >
       {/* Avatar */}
       <div className={cn(
-        "flex items-center justify-center w-9 h-9 rounded-full text-xs font-semibold shrink-0",
-        appt.urgency === "high" ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"
+        "flex items-center justify-center w-10 h-10 rounded-xl text-sm font-semibold shrink-0",
+        appt.urgency === "high" ? "bg-[#EF4444]/20 text-[#EF4444]" : "bg-[#4A90E2]/20 text-[#4A90E2]"
       )}>
         {appt.name.charAt(0)}
       </div>
@@ -90,38 +189,36 @@ function PatientRow({ appt, index }: { appt: typeof MOCK_APPOINTMENTS[0]; index:
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-[var(--foreground)] truncate">{appt.name}</p>
-          <span className="text-[10px] text-[var(--foreground-subtle)]">
+          <p className="text-sm font-medium text-[var(--text-primary)] truncate">{appt.name}</p>
+          <span className="text-[10px] text-[var(--text-secondary)]">
             {appt.age}{appt.gender}
           </span>
           {appt.urgency === "high" && (
-            <Badge variant="destructive" className="text-[9px] py-0 px-1.5 h-3.5">
+            <Badge className="text-[9px] py-0 px-1.5 h-4 bg-[#EF4444]/10 text-[#EF4444] border-0">
               Urgent
             </Badge>
           )}
           {appt.status === "completed" && (
-            <Badge variant="success" className="text-[9px] py-0 px-1.5 h-3.5">
+            <Badge className="text-[9px] py-0 px-1.5 h-4 bg-[#10B981]/10 text-[#10B981] border-0">
               Done
             </Badge>
           )}
         </div>
-        <p className="text-xs text-[var(--foreground-muted)] truncate mt-0.5">{appt.complaint}</p>
+        <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">{appt.complaint}</p>
       </div>
 
       {/* Time & type */}
       <div className="text-right shrink-0">
-        <p className="text-xs font-medium text-[var(--foreground-muted)]">{appt.time}</p>
-        <p className="text-[10px] text-[var(--foreground-subtle)] capitalize">{appt.type}</p>
+        <p className="text-xs font-medium text-[var(--text-primary)]">{appt.time}</p>
+        <p className="text-[10px] text-[var(--text-secondary)] capitalize">{appt.type}</p>
       </div>
 
       {/* Action */}
       {appt.status !== "completed" && (
-        <Link href={`/doctor/consultation?id=new&patientId=${appt.id}&patientName=${encodeURIComponent(appt.name)}`}>
-          <Button size="sm" className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Stethoscope className="w-3 h-3" />
-            Start
-          </Button>
-        </Link>
+        <Button size="sm" onClick={(e) => { e.preventDefault(); onStart(appt); }} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-xl">
+          <Stethoscope className="w-3 h-3" />
+          Start
+        </Button>
       )}
     </motion.div>
   );
@@ -134,20 +231,96 @@ interface DoctorDashboardClientProps {
 }
 
 export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [showRepoModal, setShowRepoModal] = useState(false);
+  const [showAddPatient, setShowAddPatient] = useState(false);
   const { credits, addCredits } = useProtocolCredits();
+  const [appointments, setAppointments] = useState<any[]>(MOCK_APPOINTMENTS);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredAppts = MOCK_APPOINTMENTS.filter((a) =>
-    a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.complaint.toLowerCase().includes(searchQuery.toLowerCase())
+  React.useEffect(() => {
+    async function fetchQueue() {
+      try {
+        const res = await fetch(`/api/queue?doctor_id=${user.id}`);
+        const data = await res.json();
+        if (data.queue && data.queue.length > 0) {
+          const mapped = data.queue.map((q: any) => ({
+            id: q.id,
+            patient_id: q.patient_id,
+            name: q.patient_name || 'Unknown Patient',
+            age: 35, // default since we aren't joining patients easily
+            gender: 'M',
+            time: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric' }).format(new Date(q.created_at || Date.now())),
+            type: q.visit_type || 'general',
+            complaint: q.reason || 'No complaint listed',
+            lastVisit: 'Recent',
+            status: q.status,
+            urgency: q.priority || 'normal',
+          }));
+          setAppointments(mapped);
+        } else {
+          setAppointments([]); // Clear mock data if no queue
+        }
+      } catch (err) { console.error(err); }
+      finally { setIsLoading(false); }
+    }
+    fetchQueue();
+  }, [user.id]);
+
+  const handleStartConsultation = async (appt: any) => {
+    try {
+      // Update queue status to in-consultation
+      await fetch('/api/queue', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: appt.id, status: 'in-consultation' })
+      });
+      // Remove from view immediately for snappy UI
+      setAppointments(prev => prev.filter(p => p.id !== appt.id));
+
+      // Navigate
+      router.push(`/doctor/consultation?id=new&patientId=${appt.patient_id}&patientName=${encodeURIComponent(appt.name)}&queueId=${appt.id}`);
+    } catch (err) {
+      console.error("Failed to start consultation", err);
+    }
+  };
+
+  const handlePatientAdded = (entry: any) => {
+    const newAppt = {
+      id: entry.id,
+      patient_id: entry.patient_id,
+      name: entry.patient_name || 'Unknown Patient',
+      age: 35,
+      gender: 'M',
+      time: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric' }).format(new Date(entry.created_at || Date.now())),
+      type: entry.visit_type || 'general',
+      complaint: entry.reason || 'No complaint listed',
+      lastVisit: 'First Visit',
+      status: entry.status,
+      urgency: entry.priority || 'normal',
+    };
+    setAppointments(prev => [...prev, newAppt]);
+  };
+
+  const filteredAppts = appointments.filter((a) =>
+    (a.status === "waiting" || a.status === "pending") &&
+    (a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.complaint.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const displayStats = [
+    { label: "Today's Patients", value: appointments.length.toString(), icon: Users, delta: "Live count", color: "text-[#4A90E2]", bg: "bg-[#4A90E2]/10" },
+    { label: "Consultations Done", value: appointments.filter((a) => a.status === "completed").length.toString(), icon: CheckCircle2, delta: "Live tracking", color: "text-[#10B981]", bg: "bg-[#10B981]/10" },
+    MOCK_STATS[2],
+    MOCK_STATS[3],
+  ];
 
   const now = new Date();
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto bg-[var(--bg)] min-h-screen">
       {/* Global Repository Modal */}
       <GlobalRepositoryModal
         isOpen={showRepoModal}
@@ -161,12 +334,12 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
       {/* ─── Header ──────────────────────────────────────────────── */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-bold text-[var(--foreground)]">
-            {greeting}, Dr. {user.name.split(" ")[0]}
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+            {greeting},  {"Dr. Arjun Sharma"}
           </h1>
-          <p className="text-sm text-[var(--foreground-muted)] mt-0.5 flex items-center gap-1.5">
-            <CalendarDays className="w-3.5 h-3.5" />
-            {formatDate(new Date())} · {MOCK_APPOINTMENTS.filter(a => a.status === "pending").length} patients waiting
+          <p className="text-sm text-[var(--text-secondary)] mt-1 flex items-center gap-1.5">
+            <CalendarDays className="w-4 h-4" />
+            {formatDate(new Date())} · {filteredAppts.length} patients waiting
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -175,66 +348,91 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
 
           <button
             onClick={() => setShowRepoModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 transition-colors text-xs font-medium text-purple-300"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 hover:bg-[#8B5CF6]/20 transition-all duration-200 text-xs font-medium text-[#8B5CF6]"
           >
             <Globe className="w-3.5 h-3.5" />
             Repository
           </button>
 
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button variant="outline" size="sm" className="gap-1.5 rounded-xl border-[var(--border)] hover:bg-[var(--surface-elevated)]" onClick={() => router.push('/doctor/emr')}>
             <FileText className="w-3.5 h-3.5" />
             All Records
           </Button>
-          <Link href="/doctor/consultation?id=new">
-            <Button size="sm" className="gap-1.5">
-              <Plus className="w-3.5 h-3.5" />
-              New Consultation
-            </Button>
-          </Link>
+          <Button size="sm" onClick={() => setShowAddPatient(true)} className="gap-1.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white">
+            <Plus className="w-3.5 h-3.5" />
+            Add Patient
+          </Button>
         </div>
       </div>
 
+      {/* Add Patient Modal */}
+      <AddPatientModal
+        isOpen={showAddPatient}
+        onClose={() => setShowAddPatient(false)}
+        onAdded={handlePatientAdded}
+        doctorId={user.id}
+        doctorName={user.name}
+      />
+
       {/* ─── Stats grid ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {MOCK_STATS.map((stat, i) => (
+        {displayStats.map((stat, i) => (
           <StatCard key={stat.label} stat={stat} index={i} />
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ─── Today's appointments ──────────────────────────────── */}
-        <div className="lg:col-span-2 space-y-3">
+        <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--foreground)]">
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">
               Today&apos;s Queue
             </h2>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[var(--foreground-subtle)]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search patients..."
-                className="pl-7 pr-3 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder-[var(--foreground-subtle)] focus:outline-none focus:border-blue-500 w-48"
+                className="pl-9 pr-4 py-2 text-sm bg-[var(--surface)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 w-52 transition-all duration-200"
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            {filteredAppts.map((appt, i) => (
-              <PatientRow key={appt.id} appt={appt} index={i} />
-            ))}
+          <div className="space-y-2">
+            {isLoading ? (
+              <div className="animate-pulse flex space-x-4 p-4 rounded-xl border border-[var(--border)]">
+                <div className="rounded-full bg-[var(--surface-elevated)] h-10 w-10"></div>
+                <div className="flex-1 space-y-4 py-1">
+                  <div className="h-4 bg-[var(--surface-elevated)] rounded w-3/4"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-[var(--surface-elevated)] rounded w-5/6"></div>
+                  </div>
+                </div>
+              </div>
+            ) : filteredAppts.length === 0 ? (
+              <div className="p-8 text-center border border-[var(--border)] rounded-xl border-dashed">
+                <p className="text-[var(--text-secondary)] text-sm">No patients waiting in queue today.</p>
+              </div>
+            ) : (
+              filteredAppts.map((appt, i) => (
+                <PatientRow key={appt.id} appt={appt} index={i} onStart={handleStartConsultation} />
+              ))
+            )}
           </div>
         </div>
 
         {/* ─── Right panel ───────────────────────────────────────── */}
         <div className="space-y-4">
           {/* Safety alerts preview */}
-          <Card>
+          <Card className="bg-[var(--surface)] border-[var(--border)]" style={{ borderRadius: "var(--radius)" }}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-red-400" />
+              <CardTitle className="flex items-center gap-2 text-[var(--text-primary)]">
+                <div className="w-8 h-8 rounded-lg bg-[#EF4444]/10 flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-[#EF4444]" />
+                </div>
                 Active Alerts
-                <Badge variant="destructive" className="ml-auto text-[9px]">3</Badge>
+                <Badge className="ml-auto text-[9px] bg-[#EF4444]/10 text-[#EF4444] border-0">3</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -244,23 +442,23 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
                 { drug: "Metformin + Contrast dye", severity: "medium", patient: "S. Kumar" },
               ].map((alert, i) => (
                 <div key={i} className={cn(
-                  "flex items-start gap-2 p-2 rounded-lg text-xs border",
-                  alert.severity === "critical" ? "bg-red-500/10 border-red-500/20" :
-                    alert.severity === "high" ? "bg-orange-500/10 border-orange-500/20" :
-                      "bg-amber-500/10 border-amber-500/20"
+                  "flex items-start gap-2 p-3 rounded-xl text-xs border",
+                  alert.severity === "critical" ? "bg-[#EF4444]/10 border-[#EF4444]/20" :
+                    alert.severity === "high" ? "bg-[#F59E0B]/10 border-[#F59E0B]/20" :
+                      "bg-[#F59E0B]/5 border-[#F59E0B]/10"
                 )}>
-                  <AlertTriangle className={cn("w-3 h-3 mt-0.5 shrink-0",
-                    alert.severity === "critical" ? "text-red-400" :
-                      alert.severity === "high" ? "text-orange-400" : "text-amber-400"
+                  <AlertTriangle className={cn("w-4 h-4 mt-0.5 shrink-0",
+                    alert.severity === "critical" ? "text-[#EF4444]" :
+                      alert.severity === "high" ? "text-[#F59E0B]" : "text-[#F59E0B]"
                   )} />
                   <div>
-                    <p className="font-medium text-[var(--foreground)]">{alert.drug}</p>
-                    <p className="text-[var(--foreground-subtle)]">{alert.patient}</p>
+                    <p className="font-medium text-[var(--text-primary)]">{alert.drug}</p>
+                    <p className="text-[var(--text-secondary)]">{alert.patient}</p>
                   </div>
                 </div>
               ))}
               <Link href="/doctor/alerts">
-                <Button variant="ghost" size="sm" className="w-full text-xs mt-1 gap-1">
+                <Button variant="ghost" size="sm" className="w-full text-xs mt-2 gap-1 rounded-xl hover:bg-[var(--surface-elevated)]">
                   View All <ChevronRight className="w-3 h-3" />
                 </Button>
               </Link>
@@ -268,10 +466,12 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
           </Card>
 
           {/* Quick stats */}
-          <Card>
+          <Card className="bg-[var(--surface)] border-[var(--border)]" style={{ borderRadius: "var(--radius)" }}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-green-400" />
+              <CardTitle className="flex items-center gap-2 text-[var(--text-primary)]">
+                <div className="w-8 h-8 rounded-lg bg-[#10B981]/10 flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 text-[#10B981]" />
+                </div>
                 This Week
               </CardTitle>
             </CardHeader>
@@ -284,12 +484,12 @@ export function DoctorDashboardClient({ user }: DoctorDashboardClientProps) {
               ].map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div key={item.label} className="flex items-center justify-between">
+                  <div key={item.label} className="flex items-center justify-between p-2 rounded-lg hover:bg-[var(--surface-elevated)] transition-colors">
                     <div className="flex items-center gap-2">
-                      <Icon className="w-3.5 h-3.5 text-[var(--foreground-subtle)]" />
-                      <span className="text-xs text-[var(--foreground-muted)]">{item.label}</span>
+                      <Icon className="w-4 h-4 text-[var(--text-secondary)]" />
+                      <span className="text-xs text-[var(--text-secondary)]">{item.label}</span>
                     </div>
-                    <span className="text-xs font-semibold text-[var(--foreground)]">{item.value}</span>
+                    <span className="text-xs font-semibold text-[var(--text-primary)]">{item.value}</span>
                   </div>
                 );
               })}
