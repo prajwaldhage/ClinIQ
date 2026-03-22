@@ -21,6 +21,7 @@ import { ConsentRecorder } from "./ConsentRecorder";
 import { PatientSummaryPanel } from "./PatientSummaryPanel";
 import { RuralModeIndicator } from "@/components/shared/RuralModeIndicator";
 import { MedicineAutocomplete } from "@/components/shared/MedicineAutocomplete";
+import { PatientDropdown } from "./PatientDropdown";
 import { useMedicalScribe } from "@/hooks/useMedicalScribe";
 import { useConsultationStore } from "@/store/consultationStore";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
@@ -788,7 +789,7 @@ interface ActiveConsultationClientProps {
 
 export function ActiveConsultationClient({
   consultationId = "new",
-  patientName = "Priya Sharma",
+  patientName = "",
 }: ActiveConsultationClientProps) {
   const {
     isRecording, isConnecting, transcript, interimText,
@@ -796,7 +797,7 @@ export function ActiveConsultationClient({
     startRecording, stopRecording, resetTranscript,
   } = useMedicalScribe(consultationId);
 
-  const { safety_alerts, differentials, emr_entry, audit_entries, acknowledgeAlert, setIsExtracting, addAuditEntry } = useConsultationStore();
+  const { safety_alerts, differentials, emr_entry, audit_entries, acknowledgeAlert, setIsExtracting, addAuditEntry, patient, setPatient } = useConsultationStore();
   const extractionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const liveSafetyTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSafetyLengthRef = useRef(0);
@@ -1145,8 +1146,11 @@ export function ActiveConsultationClient({
             <Stethoscope className="w-4 h-4 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-sm font-semibold text-[var(--foreground)]">{patientName}</h1>
-            <p className="text-[10px] text-[var(--foreground-subtle)]">
+            <PatientDropdown
+              selectedPatientName={patient?.name || patientName || "Select Patient"}
+              onSelect={(p) => setPatient(p)}
+            />
+            <p className="text-[10px] text-[var(--foreground-subtle)] mt-1">
               Active Consultation · {isRecording ? "Recording" : "Paused"}
               {isRecording && (
                 <span className="ml-1.5 text-red-400 font-mono">{formatDurationStr(durationMs)}</span>

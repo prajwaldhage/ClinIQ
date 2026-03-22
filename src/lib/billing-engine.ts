@@ -10,7 +10,6 @@ import type { BillingItem } from "./types";
 // ─── Base fees ────────────────────────────────────────────────────────────────
 
 export const CONSULTATION_BASE_FEE = 300;  // ₹ flat charge
-export const TIME_RATE_PER_MIN = 12;        // ₹ per minute of consultation
 
 // ─── Procedure keyword → billing ─────────────────────────────────────────────
 
@@ -96,19 +95,7 @@ export function computeBilling(input: BillingEngineInput): BillingEngineResult {
     },
   ];
 
-  // 2. Time-based charge
-  const minutes = Math.max(1, Math.floor(durationMs / 60000));
-  if (minutes > 0) {
-    items.push({
-      description: `Consultation Time (${minutes} min)`,
-      category: "consultation",
-      quantity: minutes,
-      unit_price: TIME_RATE_PER_MIN,
-      total: minutes * TIME_RATE_PER_MIN,
-    });
-  }
-
-  // 3. Procedure/investigation/equipment detection from transcript
+  // 2. Procedure/investigation/equipment detection from transcript
   const alreadyAdded = new Set(existingItems.map((i) => i.description));
 
   for (const rule of PROCEDURE_RULES) {

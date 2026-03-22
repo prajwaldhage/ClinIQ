@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { computeBilling, formatINR, CATEGORY_COLORS } from "@/lib/billing-engine";
 import { cn } from "@/lib/utils";
+import { useConsultationStore } from "@/store/consultationStore";
 import type { BillingItem } from "@/lib/types";
 
 const CATEGORY_ICONS: Record<BillingItem["category"], React.ReactNode> = {
@@ -36,7 +37,9 @@ export function LiveBillingPanel({ durationMs, transcript }: LiveBillingPanelPro
     [Math.floor(durationMs / 60000), transcript]
   );
 
-  const minutes = Math.max(1, Math.floor(durationMs / 60000));
+  React.useEffect(() => {
+    useConsultationStore.getState().updateBillingDraft(billing);
+  }, [billing]);
 
   // Group items by category for display
   const grouped = billing.line_items.reduce<Record<string, BillingItem[]>>((acc, item) => {
@@ -74,7 +77,7 @@ export function LiveBillingPanel({ durationMs, transcript }: LiveBillingPanelPro
             <Clock className="w-3.5 h-3.5 text-amber-400" />
             <div>
               <p className="text-[10px] text-amber-400/70">Running Total</p>
-              <p className="text-[10px] text-[var(--foreground-subtle)]">{minutes} min · {billing.line_items.length} items</p>
+              <p className="text-[10px] text-[var(--foreground-subtle)]">{billing.line_items.length} items</p>
             </div>
           </div>
           <div className="text-right">
