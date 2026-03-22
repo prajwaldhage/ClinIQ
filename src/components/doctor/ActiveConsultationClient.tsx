@@ -789,7 +789,7 @@ interface ActiveConsultationClientProps {
 
 export function ActiveConsultationClient({
   consultationId = "new",
-  patientName = "Priya Sharma",
+  patientName = "",
 }: ActiveConsultationClientProps) {
   const {
     isRecording, isConnecting, transcript, interimText,
@@ -1147,7 +1147,7 @@ export function ActiveConsultationClient({
           </div>
           <div>
             <PatientDropdown
-              selectedPatientName={patient?.name || patientName}
+              selectedPatientName={patient?.name || patientName || "Select Patient"}
               onSelect={(p) => setPatient(p)}
             />
             <p className="text-[10px] text-[var(--foreground-subtle)] mt-1">

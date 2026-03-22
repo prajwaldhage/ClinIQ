@@ -5,45 +5,6 @@ import { User, ChevronDown, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Patient } from "@/lib/types";
 
-const MOCK_PATIENTS: Patient[] = [
-  {
-    id: "p-001",
-    user_id: "u-001",
-    name: "Priya Sharma",
-    dob: "1980-05-14",
-    gender: "F",
-    phone: "+91 98765 43210",
-    blood_group: "B+",
-    allergies: ["Penicillin"],
-    chronic_conditions: ["Type 2 Diabetes", "Hypertension"],
-    created_at: new Date().toISOString()
-  },
-  {
-    id: "p-003",
-    user_id: "u-003",
-    name: "Anita Verma",
-    dob: "1992-11-08",
-    gender: "F",
-    phone: "+91 76543 21098",
-    blood_group: "A+",
-    allergies: [],
-    chronic_conditions: ["Migraine"],
-    created_at: new Date().toISOString()
-  },
-  {
-    id: "p-008",
-    user_id: "u-008",
-    name: "Arjun Reddy",
-    dob: "1988-12-25",
-    gender: "M",
-    phone: "+91 21098 76543",
-    blood_group: "O+",
-    allergies: [],
-    chronic_conditions: ["Asthma"],
-    created_at: new Date().toISOString()
-  }
-];
-
 interface PatientDropdownProps {
   onSelect: (patient: Patient) => void;
   selectedPatientName: string;
@@ -52,7 +13,7 @@ interface PatientDropdownProps {
 export function PatientDropdown({ onSelect, selectedPatientName }: PatientDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -79,21 +40,9 @@ export function PatientDropdown({ onSelect, selectedPatientName }: PatientDropdo
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
-        if (active) {
-            if (data.patients && data.patients.length > 0) {
-              setPatients(data.patients);
-            } else if (!search) {
-              // If no search and db is empty, fallback to mock patients so it matches PatientsClient
-              setPatients(MOCK_PATIENTS);
-            } else {
-              setPatients([]);
-            }
-        }
+        if (active) setPatients(data.patients || []);
       } catch (err) {
         console.error(err);
-        if (active && !search) {
-          setPatients(MOCK_PATIENTS); // Fallback to mock on error like PatientsClient
-        }
       } finally {
         if (active) setLoading(false);
       }
@@ -127,7 +76,7 @@ export function PatientDropdown({ onSelect, selectedPatientName }: PatientDropdo
       >
         <User className="w-3.5 h-3.5 text-[var(--foreground-muted)]" />
         <span className="text-xs font-medium text-[var(--foreground)] pr-1">
-          {selectedPatientName === "Priya Sharma" ? "Select Patient" : selectedPatientName}
+          {selectedPatientName}
         </span>
         <ChevronDown className="w-3.5 h-3.5 text-[var(--foreground-subtle)]" />
       </button>
