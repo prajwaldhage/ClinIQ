@@ -24,9 +24,9 @@ CliniQ eliminates 2-3 hours of daily documentation burden for Indian doctors thr
 </div>
 ---
 Team Members:
-> Hardik Rokde(Team Leader)
-> Prajwal Dhage
-> Harsh Singh
+> Hardik Rokde\
+> Prajwal Dhage\
+> Harsh Singh\
 > Vivek Agrawal
 ---
 
