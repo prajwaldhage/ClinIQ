@@ -8,12 +8,6 @@
 
 CliniQ eliminates 2-3 hours of daily documentation burden for Indian doctors through intelligent voice recognition, clinical AI, and epidemiological awareness — built specifically for Indian healthcare workflows.
 
-Team Members:
-1. Hardik Rokde(Team Leader)
-2. Prajwal Dhage
-3. Harsh Singh
-4. Vivek Agrawal
-
 ---
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat&logo=next.js)](https://nextjs.org/)
@@ -28,7 +22,12 @@ Team Members:
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](http://makeapullrequest.com)
 
 </div>
-
+---
+Team Members:
+1. Hardik Rokde(Team Leader)
+2. Prajwal Dhage
+3. Harsh Singh
+4. Vivek Agrawal
 ---
 
 ## **Table of Contents**
