@@ -622,7 +622,7 @@ export function PatientsClient({ user }: PatientsClientProps) {
           }));
           setPatients(mapped);
         } else {
-          setPatients([]);
+          setPatients(MOCK_PATIENTS);
         }
       } catch (err) {
         console.error(err);
