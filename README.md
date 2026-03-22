@@ -22,7 +22,6 @@ CliniQ eliminates 2-3 hours of daily documentation burden for Indian doctors thr
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](http://makeapullrequest.com)
 
 </div>
----
 
 Team Members:
 > Hardik Rokde<br>
